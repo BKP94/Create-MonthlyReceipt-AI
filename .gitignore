@@ -11,6 +11,9 @@ frontend/.vite/
 # Data (ข้อมูลส่วนตัว ไม่ขึ้น GitHub)
 data/db/
 
+# Claude Code
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db
