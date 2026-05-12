@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "finance-frontend",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
+      "runtimeArgs": [
+        "C:\\Project_BEER\\Monthly_Receipt\\frontend\\node_modules\\vite\\bin\\vite.js",
+        "C:\\Project_BEER\\Monthly_Receipt\\frontend",
+        "--port", "3000"
+      ],
+      "port": 3000
+    }
+  ]
+}

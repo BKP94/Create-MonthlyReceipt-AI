@@ -1,0 +1,20 @@
+# .NET
+backend/FinanceApi/bin/
+backend/FinanceApi/obj/
+backend/FinanceApi/*.user
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Data (ข้อมูลส่วนตัว ไม่ขึ้น GitHub)
+data/db/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

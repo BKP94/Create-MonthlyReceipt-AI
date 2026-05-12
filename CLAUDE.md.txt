@@ -1,0 +1,17 @@
+# Monthly Receipt Project
+
+## โครงสร้าง Folder
+- Backend: C:\Project_BEER\Monthly_Receipt\backend\
+- Frontend: C:\Project_BEER\Monthly_Receipt\frontend\
+- ข้อมูล CSV: C:\Project_BEER\Monthly_Receipt\data\db\
+- ไฟล์ตัวอย่าง: C:\Project_BEER\Monthly_Receipt\data\samples\
+
+## Tech Stack
+- Backend: C# ASP.NET Core Web API (port 5000)
+- Frontend: React.js + Material UI v5 (port 3000)
+- ข้อมูล: CSV files
+
+## ข้อกำหนด
+- ข้อความในโปรแกรมเป็นภาษาไทยทั้งหมด
+- Backend เปิด CORS รองรับ port 3000
+- สร้างไฟล์ CSV อัตโนมัติถ้ายังไม่มี
