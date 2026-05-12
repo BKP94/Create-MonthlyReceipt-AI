@@ -53,13 +53,13 @@ public class DashboardController(CsvDataService csv) : ControllerBase
             Month = m,
             MonthName = $"{ThaiMonths[m]} {y + 543}",
 
-            Salary = budget.Salary,
+            Salary = budget.NetSalary,
             DebtBudget = budget.DebtBudget,
             DailyBudget = budget.DailyBudget,
             SavingsBudget = budget.SavingsBudget,
 
             TotalExpenses = totalExpenses,
-            Remaining = budget.Salary - totalExpenses,
+            Remaining = budget.NetSalary - totalExpenses,
             TotalDebtExpenses = totalDebt,
             TotalDailyExpenses = totalDaily,
             TotalInstallmentsMonthly = totalInstallmentsMonthly,

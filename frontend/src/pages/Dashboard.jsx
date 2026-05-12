@@ -137,9 +137,9 @@ export default function Dashboard() {
           {/* Row 1 – Budget overview */}
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
-              title="เงินเดือน"
+              title="เงินเดือนสุทธิ"
               amount={data.Salary}
-              subtitle="รายได้ทั้งหมด"
+              subtitle="หลังหักประกันสังคม/กยศ."
               icon={<AccountBalanceWalletIcon sx={{ color: 'primary.main' }} />}
               color="primary.main"
             />
