@@ -10,6 +10,7 @@ public class CsvDataService
     private readonly string _expensesFile;
     private readonly string _installmentsFile;
     private readonly string _budgetFile;
+    private readonly string _salaryHistoryFile;
 
     private static readonly object _lock = new();
 
@@ -21,6 +22,7 @@ public class CsvDataService
         _expensesFile = Path.Combine(_dataPath, "expenses.csv");
         _installmentsFile = Path.Combine(_dataPath, "installments.csv");
         _budgetFile = Path.Combine(_dataPath, "budget.csv");
+        _salaryHistoryFile = Path.Combine(_dataPath, "salary_history.csv");
 
         InitializeFiles();
     }
@@ -47,6 +49,11 @@ public class CsvDataService
             sb.AppendLine("Salary,SocialSecurity,StudentLoan,OtherDeductions,DebtPercent,DailyExpensePercent,SavingsPercent,UpdatedAt");
             sb.AppendLine($"42334.00,0.00,0.00,0.00,50,30,20,{DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}");
             WriteAllText(_budgetFile, sb.ToString());
+        }
+
+        if (!File.Exists(_salaryHistoryFile))
+        {
+            WriteAllText(_salaryHistoryFile, "Id,Year,Salary,Note,CreatedAt\r\n");
         }
     }
 
@@ -314,6 +321,112 @@ public class CsvDataService
                 UpdatedAt = p.Length > (isNewFormat ? 7 : 4)
                     ? p[isNewFormat ? 7 : 4]
                     : DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+            };
+        }
+        catch { return null; }
+    }
+
+    // ==================== SALARY HISTORY ====================
+
+    public List<SalaryHistory> GetAllSalaryHistory()
+    {
+        lock (_lock)
+        {
+            if (!File.Exists(_salaryHistoryFile)) return [];
+            return ReadAllLines(_salaryHistoryFile)
+                .Skip(1)
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .Select(ParseSalaryHistory)
+                .OfType<SalaryHistory>()
+                .OrderBy(h => h.Year)
+                .ToList();
+        }
+    }
+
+    public SalaryHistory? GetSalaryHistoryById(int id)
+    {
+        return GetAllSalaryHistory().FirstOrDefault(h => h.Id == id);
+    }
+
+    public SalaryHistory AddSalaryHistory(SalaryHistory record)
+    {
+        lock (_lock)
+        {
+            var list = ReadSalaryHistoryUnsafe();
+            record.Id = list.Count > 0 ? list.Max(h => h.Id) + 1 : 1;
+            record.CreatedAt = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            list.Add(record);
+            SaveSalaryHistoryUnsafe(list);
+            return record;
+        }
+    }
+
+    public SalaryHistory? UpdateSalaryHistory(int id, SalaryHistory record)
+    {
+        lock (_lock)
+        {
+            var list = ReadSalaryHistoryUnsafe();
+            var idx = list.FindIndex(h => h.Id == id);
+            if (idx < 0) return null;
+            record.Id = id;
+            record.CreatedAt = list[idx].CreatedAt; // คงวันที่เดิมไว้
+            list[idx] = record;
+            SaveSalaryHistoryUnsafe(list);
+            return record;
+        }
+    }
+
+    public bool DeleteSalaryHistory(int id)
+    {
+        lock (_lock)
+        {
+            var list = ReadSalaryHistoryUnsafe();
+            var removed = list.RemoveAll(h => h.Id == id);
+            if (removed > 0) SaveSalaryHistoryUnsafe(list);
+            return removed > 0;
+        }
+    }
+
+    private List<SalaryHistory> ReadSalaryHistoryUnsafe()
+    {
+        if (!File.Exists(_salaryHistoryFile)) return [];
+        return ReadAllLines(_salaryHistoryFile)
+            .Skip(1)
+            .Where(l => !string.IsNullOrWhiteSpace(l))
+            .Select(ParseSalaryHistory)
+            .OfType<SalaryHistory>()
+            .ToList();
+    }
+
+    private void SaveSalaryHistoryUnsafe(List<SalaryHistory> list)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Id,Year,Salary,Note,CreatedAt");
+        foreach (var h in list)
+        {
+            sb.AppendLine(string.Join(",",
+                h.Id,
+                h.Year,
+                h.Salary.ToString("F2"),
+                Escape(h.Note ?? ""),
+                Escape(h.CreatedAt ?? "")));
+        }
+        WriteAllText(_salaryHistoryFile, sb.ToString());
+    }
+
+    private static SalaryHistory? ParseSalaryHistory(string line)
+    {
+        try
+        {
+            var p = SplitCsv(line);
+            if (p.Length < 3) return null;
+            return new SalaryHistory
+            {
+                Id        = int.Parse(p[0]),
+                Year      = int.Parse(p[1]),
+                Salary    = decimal.Parse(p[2]),
+                Note      = p.Length > 3 && !string.IsNullOrEmpty(p[3]) ? p[3] : null,
+                CreatedAt = p.Length > 4 && !string.IsNullOrEmpty(p[4]) ? p[4] : null,
             };
         }
         catch { return null; }

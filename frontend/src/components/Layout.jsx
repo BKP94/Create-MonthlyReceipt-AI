@@ -21,6 +21,7 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import TuneIcon from '@mui/icons-material/Tune';
 import SavingsIcon from '@mui/icons-material/Savings';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
 // ความกว้างของ Sidebar (px)
 const DRAWER_WIDTH = 248;
@@ -31,7 +32,8 @@ const navItems = [
   { label: 'แดชบอร์ด',        path: '/',              icon: <DashboardIcon /> },
   { label: 'รายจ่ายรายเดือน', path: '/expenses',      icon: <ReceiptLongIcon /> },
   { label: 'ผ่อนชำระ',        path: '/installments',  icon: <CreditCardIcon /> },
-  { label: 'ตั้งค่างบประมาณ', path: '/budget',        icon: <TuneIcon /> },
+  { label: 'ตั้งค่างบประมาณ', path: '/budget',          icon: <TuneIcon /> },
+  { label: 'ประวัติเงินเดือน', path: '/salary-history', icon: <TrendingUpIcon /> },
 ];
 
 // Layout รับ children prop — เนื้อหาแต่ละหน้าจะถูกวางใน Box component="main"

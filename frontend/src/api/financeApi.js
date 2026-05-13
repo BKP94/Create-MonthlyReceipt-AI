@@ -67,3 +67,20 @@ export const dashboardApi = {
   get: (year, month) =>
     api.get('/dashboard', { params: year && month ? { year, month } : {} }),
 };
+
+// =====================================================
+// Salary History API — ประวัติเงินเดือนรายปี
+// =====================================================
+export const salaryHistoryApi = {
+  // GET /api/salary-history — ดึงทั้งหมด (เรียงปีจากเก่าไปใหม่)
+  getAll: () => api.get('/salary-history'),
+
+  // POST /api/salary-history — เพิ่มปีใหม่ (ถ้าปีล่าสุดจะ sync Budget อัตโนมัติ)
+  create: (data) => api.post('/salary-history', data),
+
+  // PUT /api/salary-history/1 — แก้ไข
+  update: (id, data) => api.put(`/salary-history/${id}`, data),
+
+  // DELETE /api/salary-history/1
+  remove: (id) => api.delete(`/salary-history/${id}`),
+};
