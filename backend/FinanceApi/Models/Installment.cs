@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace FinanceApi.Models;
 
 // ========================================================
@@ -30,21 +32,13 @@ public class Installment
     public string? Note { get; set; }
 
     // =====================================================
-    // Computed Properties — คำนวณอัตโนมัติ ไม่เก็บใน CSV
+    // Computed Properties — คำนวณอัตโนมัติ ไม่บันทึกลง DB
+    // [NotMapped] บอก EF Core ให้ข้ามคอลัมน์เหล่านี้
     // =====================================================
 
-    // งวดที่เหลือ = ทั้งหมด - ชำระแล้ว
-    public int RemainingInstallments => TotalInstallments - PaidInstallments;
-
-    // ยอดรวมทั้งหมด = จำนวนงวด × ต่องวด
-    public decimal TotalAmount => TotalInstallments * MonthlyAmount;
-
-    // ยอดที่จ่ายไปแล้ว = งวดที่จ่ายแล้ว × ต่องวด
-    public decimal PaidAmount => PaidInstallments * MonthlyAmount;
-
-    // ยอดคงเหลือ = งวดที่เหลือ × ต่องวด
-    public decimal RemainingAmount => RemainingInstallments * MonthlyAmount;
-
-    // ผ่อนหมดแล้วหรือยัง — ใช้ใน Dashboard กรอง Active installments
-    public bool IsCompleted => PaidInstallments >= TotalInstallments;
+    [NotMapped] public int RemainingInstallments => TotalInstallments - PaidInstallments;
+    [NotMapped] public decimal TotalAmount => TotalInstallments * MonthlyAmount;
+    [NotMapped] public decimal PaidAmount => PaidInstallments * MonthlyAmount;
+    [NotMapped] public decimal RemainingAmount => RemainingInstallments * MonthlyAmount;
+    [NotMapped] public bool IsCompleted => PaidInstallments >= TotalInstallments;
 }

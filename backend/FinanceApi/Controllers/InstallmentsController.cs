@@ -12,14 +12,14 @@ namespace FinanceApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class InstallmentsController(CsvDataService csv) : ControllerBase
+public class InstallmentsController(SqliteDataService db) : ControllerBase
 {
     // GET /api/installments — ดึงทั้งหมด
     // GET /api/installments?activeOnly=true — ดึงเฉพาะที่ยังไม่หมด (IsCompleted = false)
     [HttpGet]
     public IActionResult GetAll([FromQuery] bool? activeOnly)
     {
-        var list = csv.GetAllInstallments();
+        var list = db.GetAllInstallments();
         if (activeOnly == true)
             list = list.Where(i => !i.IsCompleted).ToList();
         return Ok(list);
@@ -29,7 +29,7 @@ public class InstallmentsController(CsvDataService csv) : ControllerBase
     [HttpGet("{id:int}")]
     public IActionResult GetById(int id)
     {
-        var item = csv.GetInstallmentById(id);
+        var item = db.GetInstallmentById(id);
         if (item is null) return NotFound(new { message = "ไม่พบรายการผ่อนชำระที่ระบุ" });
         return Ok(item);
     }
@@ -50,7 +50,7 @@ public class InstallmentsController(CsvDataService csv) : ControllerBase
         if (installment.PaidInstallments > installment.TotalInstallments)
             return BadRequest(new { message = "งวดที่ชำระแล้วเกินจำนวนงวดทั้งหมด" });
 
-        var created = csv.AddInstallment(installment);
+        var created = db.AddInstallment(installment);
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
@@ -65,7 +65,7 @@ public class InstallmentsController(CsvDataService csv) : ControllerBase
         if (installment.PaidInstallments > installment.TotalInstallments)
             return BadRequest(new { message = "งวดที่ชำระแล้วเกินจำนวนงวดทั้งหมด" });
 
-        var updated = csv.UpdateInstallment(id, installment);
+        var updated = db.UpdateInstallment(id, installment);
         if (updated is null) return NotFound(new { message = "ไม่พบรายการผ่อนชำระที่ระบุ" });
         return Ok(updated);
     }
@@ -74,7 +74,7 @@ public class InstallmentsController(CsvDataService csv) : ControllerBase
     [HttpDelete("{id:int}")]
     public IActionResult Delete(int id)
     {
-        if (!csv.DeleteInstallment(id))
+        if (!db.DeleteInstallment(id))
             return NotFound(new { message = "ไม่พบรายการผ่อนชำระที่ระบุ" });
         return Ok(new { message = "ลบรายการผ่อนชำระเรียบร้อยแล้ว", id });
     }

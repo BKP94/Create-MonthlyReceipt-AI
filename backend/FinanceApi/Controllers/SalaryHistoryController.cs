@@ -12,20 +12,20 @@ namespace FinanceApi.Controllers;
 
 [ApiController]
 [Route("api/salary-history")]
-public class SalaryHistoryController(CsvDataService csv) : ControllerBase
+public class SalaryHistoryController(SqliteDataService db) : ControllerBase
 {
     // GET /api/salary-history — ดึงทั้งหมด เรียงตามปีจากเก่าไปใหม่
     [HttpGet]
     public IActionResult GetAll()
     {
-        return Ok(csv.GetAllSalaryHistory());
+        return Ok(db.GetAllSalaryHistory());
     }
 
     // GET /api/salary-history/1
     [HttpGet("{id:int}")]
     public IActionResult GetById(int id)
     {
-        var item = csv.GetSalaryHistoryById(id);
+        var item = db.GetSalaryHistoryById(id);
         if (item is null) return NotFound(new { message = "ไม่พบข้อมูลเงินเดือนที่ระบุ" });
         return Ok(item);
     }
@@ -41,23 +41,23 @@ public class SalaryHistoryController(CsvDataService csv) : ControllerBase
             return BadRequest(new { message = "เงินเดือนต้องมากกว่า 0" });
 
         // ตรวจสอบว่ามีข้อมูลปีนี้แล้วหรือยัง (ห้ามซ้ำ)
-        var existing = csv.GetAllSalaryHistory();
+        var existing = db.GetAllSalaryHistory();
         if (existing.Any(h => h.Year == record.Year))
             return BadRequest(new { message = $"มีข้อมูลเงินเดือนปี {record.Year} อยู่แล้ว" });
 
-        var created = csv.AddSalaryHistory(record);
+        var created = db.AddSalaryHistory(record);
 
         // ตรวจสอบว่าปีที่เพิ่มคือปีล่าสุดหรือไม่
         // ถ้าใช่ → sync เงินเดือนไปที่ Budget settings อัตโนมัติ
-        var allHistory = csv.GetAllSalaryHistory();
+        var allHistory = db.GetAllSalaryHistory();
         bool budgetUpdated = false;
         decimal newNetSalary = 0;
 
         if (allHistory.Any() && created.Year == allHistory.Max(h => h.Year))
         {
-            var budget = csv.GetBudget();
+            var budget = db.GetBudget();
             budget.Salary = created.Salary;
-            var updatedBudget = csv.UpdateBudget(budget);
+            var updatedBudget = db.UpdateBudget(budget);
             budgetUpdated = true;
             newNetSalary = updatedBudget.NetSalary;
         }
@@ -81,23 +81,23 @@ public class SalaryHistoryController(CsvDataService csv) : ControllerBase
             return BadRequest(new { message = "เงินเดือนต้องมากกว่า 0" });
 
         // ตรวจสอบปีซ้ำ (ยกเว้นรายการตัวเอง)
-        var existing = csv.GetAllSalaryHistory();
+        var existing = db.GetAllSalaryHistory();
         if (existing.Any(h => h.Year == record.Year && h.Id != id))
             return BadRequest(new { message = $"มีข้อมูลเงินเดือนปี {record.Year} อยู่แล้ว" });
 
-        var updated = csv.UpdateSalaryHistory(id, record);
+        var updated = db.UpdateSalaryHistory(id, record);
         if (updated is null) return NotFound(new { message = "ไม่พบข้อมูลเงินเดือนที่ระบุ" });
 
         // sync Budget ถ้าเป็นปีล่าสุด
-        var allHistory = csv.GetAllSalaryHistory();
+        var allHistory = db.GetAllSalaryHistory();
         bool budgetUpdated = false;
         decimal newNetSalary = 0;
 
         if (allHistory.Any() && updated.Year == allHistory.Max(h => h.Year))
         {
-            var budget = csv.GetBudget();
+            var budget = db.GetBudget();
             budget.Salary = updated.Salary;
-            var updatedBudget = csv.UpdateBudget(budget);
+            var updatedBudget = db.UpdateBudget(budget);
             budgetUpdated = true;
             newNetSalary = updatedBudget.NetSalary;
         }
@@ -114,7 +114,7 @@ public class SalaryHistoryController(CsvDataService csv) : ControllerBase
     [HttpDelete("{id:int}")]
     public IActionResult Delete(int id)
     {
-        if (!csv.DeleteSalaryHistory(id))
+        if (!db.DeleteSalaryHistory(id))
             return NotFound(new { message = "ไม่พบข้อมูลเงินเดือนที่ระบุ" });
         return Ok(new { message = "ลบข้อมูลเงินเดือนเรียบร้อยแล้ว", id });
     }

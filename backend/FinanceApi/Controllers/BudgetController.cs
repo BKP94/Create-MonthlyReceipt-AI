@@ -13,14 +13,14 @@ namespace FinanceApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class BudgetController(CsvDataService csv) : ControllerBase
+public class BudgetController(SqliteDataService db) : ControllerBase
 {
     // GET /api/budget — ดึงข้อมูลงบประมาณปัจจุบัน
     // ส่งกลับ Budget object พร้อม computed properties (NetSalary, DebtBudget ฯลฯ)
     [HttpGet]
     public IActionResult Get()
     {
-        return Ok(csv.GetBudget());
+        return Ok(db.GetBudget());
     }
 
     // PUT /api/budget — อัปเดตงบประมาณทั้งหมด
@@ -51,7 +51,7 @@ public class BudgetController(CsvDataService csv) : ControllerBase
             return BadRequest(new { message = "สัดส่วนต้องไม่ติดลบ" });
 
         // บันทึกข้อมูล แล้วส่งกลับ Budget ที่อัปเดตแล้ว (พร้อม UpdatedAt ใหม่)
-        var updated = csv.UpdateBudget(budget);
+        var updated = db.UpdateBudget(budget);
         return Ok(updated);
     }
 }

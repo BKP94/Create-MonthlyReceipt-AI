@@ -1,13 +1,18 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace FinanceApi.Models;
 
 // ========================================================
 // Budget.cs — Model ข้อมูลงบประมาณส่วนตัว
 // เก็บข้อมูลเงินเดือน รายการหัก และสัดส่วนงบแต่ละหมวด
-// ข้อมูลถูกบันทึกใน data/db/budget.csv และโหลดผ่าน CsvDataService
+// บันทึกใน SQLite table "Budgets" (มีแค่ 1 row เสมอ Id = 1)
 // ========================================================
 
 public class Budget
 {
+    // Primary Key สำหรับ EF Core — ค่าจะเป็น 1 เสมอ (single-row table)
+    public int Id { get; set; } = 1;
+
     // เงินเดือน "ก่อน" หัก (Gross Salary)
     public decimal Salary { get; set; } = 42334m;
 
@@ -25,17 +30,19 @@ public class Budget
     public string UpdatedAt { get; set; } = string.Empty;
 
     // =====================================================
-    // Computed Properties — คำนวณอัตโนมัติ ไม่ต้องบันทึกใน CSV
-    // => คือ expression body property (getter อย่างเดียว)
+    // Computed Properties — คำนวณอัตโนมัติ ไม่บันทึกลง DB
+    // [NotMapped] บอก EF Core ให้ข้ามคอลัมน์นี้ ไม่สร้าง column ใน SQLite
     // =====================================================
 
-    // เงินเดือนสุทธิ = เงินเดือน - ประกันสังคม - กยศ. - อื่นๆ
+    [NotMapped]
     public decimal TotalDeductions => SocialSecurity + StudentLoan + OtherDeductions;
+    [NotMapped]
     public decimal NetSalary => Salary - TotalDeductions;
 
-    // คำนวณงบแต่ละส่วนจากเงินเดือนสุทธิ
-    // Math.Round(..., 2) → ปัดทศนิยม 2 ตำแหน่ง
+    [NotMapped]
     public decimal DebtBudget => Math.Round(NetSalary * DebtPercent / 100, 2);
+    [NotMapped]
     public decimal DailyBudget => Math.Round(NetSalary * DailyExpensePercent / 100, 2);
+    [NotMapped]
     public decimal SavingsBudget => Math.Round(NetSalary * SavingsPercent / 100, 2);
 }

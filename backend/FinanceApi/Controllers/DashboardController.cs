@@ -12,7 +12,7 @@ namespace FinanceApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class DashboardController(CsvDataService csv) : ControllerBase
+public class DashboardController(SqliteDataService db) : ControllerBase
 {
     // ชื่อเดือนภาษาไทย — index 0 เว้นว่าง เพราะเดือนเริ่มที่ 1
     private static readonly string[] ThaiMonths =
@@ -34,9 +34,9 @@ public class DashboardController(CsvDataService csv) : ControllerBase
             return BadRequest(new { message = "เดือนต้องอยู่ระหว่าง 1-12" });
 
         // โหลดข้อมูลจาก CSV ทั้ง 3 ส่วน
-        var budget = csv.GetBudget();
-        var allExpenses = csv.GetAllExpenses();
-        var installments = csv.GetAllInstallments();
+        var budget = db.GetBudget();
+        var allExpenses = db.GetAllExpenses();
+        var installments = db.GetAllInstallments();
 
         // กรองรายจ่ายเฉพาะเดือนที่ต้องการ
         var currentExpenses = allExpenses

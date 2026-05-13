@@ -8,12 +8,12 @@ namespace FinanceApi.Controllers;
 // ExpensesController.cs — API รายจ่ายรายเดือน
 // [ApiController]    → เปิดใช้ฟีเจอร์อัตโนมัติ เช่น validation, 400 response
 // [Route("api/[controller]")] → URL จะเป็น /api/expenses
-// Primary Constructor (CsvDataService csv) → DI inject service เข้ามาอัตโนมัติ
+// Primary Constructor (SqliteDataService db) → DI inject service เข้ามาอัตโนมัติ
 // ========================================================
 
 [ApiController]
 [Route("api/[controller]")]
-public class ExpensesController(CsvDataService csv) : ControllerBase
+public class ExpensesController(SqliteDataService db) : ControllerBase
 {
     // GET /api/expenses?year=2026&month=5
     // ดึงรายจ่ายตามปี/เดือน ถ้าไม่ส่ง query param จะดึงทั้งหมด
@@ -21,15 +21,15 @@ public class ExpensesController(CsvDataService csv) : ControllerBase
     public IActionResult GetAll([FromQuery] int? year, [FromQuery] int? month)
     {
         if (year.HasValue && month.HasValue)
-            return Ok(csv.GetExpensesByMonth(year.Value, month.Value));
-        return Ok(csv.GetAllExpenses());
+            return Ok(db.GetExpensesByMonth(year.Value, month.Value));
+        return Ok(db.GetAllExpenses());
     }
 
     // GET /api/expenses/5 — ดึงรายการเดียวตาม Id
     [HttpGet("{id:int}")]
     public IActionResult GetById(int id)
     {
-        var expense = csv.GetExpenseById(id);
+        var expense = db.GetExpenseById(id);
         // ถ้าไม่เจอ return 404 Not Found พร้อม message ภาษาไทย
         if (expense is null) return NotFound(new { message = "ไม่พบรายการที่ระบุ" });
         return Ok(expense);
@@ -48,7 +48,7 @@ public class ExpensesController(CsvDataService csv) : ControllerBase
         if (expense.Year <= 0 || expense.Month is < 1 or > 12)
             return BadRequest(new { message = "กรุณาระบุปีและเดือนให้ถูกต้อง" });
 
-        var created = csv.AddExpense(expense);
+        var created = db.AddExpense(expense);
         // 201 Created พร้อม Location header ชี้ไปที่ URL ของรายการที่สร้าง
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
@@ -62,7 +62,7 @@ public class ExpensesController(CsvDataService csv) : ControllerBase
         if (expense.Amount <= 0)
             return BadRequest(new { message = "จำนวนเงินต้องมากกว่า 0" });
 
-        var updated = csv.UpdateExpense(id, expense);
+        var updated = db.UpdateExpense(id, expense);
         if (updated is null) return NotFound(new { message = "ไม่พบรายการที่ระบุ" });
         return Ok(updated);
     }
@@ -72,11 +72,11 @@ public class ExpensesController(CsvDataService csv) : ControllerBase
     [HttpPatch("{id:int}/paid")]
     public IActionResult TogglePaid(int id, [FromBody] bool isPaid)
     {
-        var expense = csv.GetExpenseById(id);
+        var expense = db.GetExpenseById(id);
         if (expense is null) return NotFound(new { message = "ไม่พบรายการที่ระบุ" });
         // อัปเดตเฉพาะ field IsPaid แล้วบันทึก
         expense.IsPaid = isPaid;
-        var updated = csv.UpdateExpense(id, expense);
+        var updated = db.UpdateExpense(id, expense);
         return Ok(updated);
     }
 
@@ -84,7 +84,7 @@ public class ExpensesController(CsvDataService csv) : ControllerBase
     [HttpDelete("{id:int}")]
     public IActionResult Delete(int id)
     {
-        if (!csv.DeleteExpense(id))
+        if (!db.DeleteExpense(id))
             return NotFound(new { message = "ไม่พบรายการที่ระบุ" });
         return Ok(new { message = "ลบรายการเรียบร้อยแล้ว", id });
     }
