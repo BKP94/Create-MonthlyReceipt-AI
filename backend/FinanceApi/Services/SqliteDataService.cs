@@ -5,8 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace FinanceApi.Services;
 
 // ========================================================
-// SqliteDataService.cs — Data service ใหม่ที่ใช้ SQLite
-// แทนที่ CsvDataService โดยมี method signatures เหมือนกันทุกอย่าง
+// SqliteDataService.cs — จัดการข้อมูลทั้งหมดผ่าน SQLite
 // ใช้ IDbContextFactory เพราะ service นี้เป็น Singleton
 // แต่ DbContext ต้องสร้างใหม่ต่อ operation (ไม่ใช่ thread-safe)
 // ========================================================

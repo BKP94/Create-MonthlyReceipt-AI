@@ -48,23 +48,15 @@ var dbFile = Path.Combine(dataPath, "finance.db");
 builder.Services.AddDbContextFactory<FinanceDbContext>(options =>
     options.UseSqlite($"Data Source={dbFile}"));
 
-// ลงทะเบียน SqliteDataService เป็น Singleton (แทน CsvDataService เดิม)
 builder.Services.AddSingleton<SqliteDataService>();
 
 var app = builder.Build();
 
-// =========================================================
-// สร้าง Database และนำเข้าข้อมูลจาก CSV (รันครั้งเดียวตอน startup)
 // EnsureCreated() → สร้าง tables ถ้ายังไม่มี (ไม่ลบข้อมูลเดิม)
-// =========================================================
 using (var scope = app.Services.CreateScope())
 {
-    var db      = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
-    var csvPath = builder.Configuration["DataPath"]
-        ?? Path.Combine(AppContext.BaseDirectory, "data", "db");
-
-    db.Database.EnsureCreated();          // สร้าง tables ถ้ายังไม่มี
-    CsvImporter.ImportIfEmpty(db, csvPath); // นำเข้าข้อมูลจาก CSV ถ้า DB ว่าง
+    var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+    db.Database.EnsureCreated();
 }
 
 if (app.Environment.IsDevelopment())

@@ -3,7 +3,7 @@ namespace FinanceApi.Models;
 // ========================================================
 // SalaryHistory.cs — Model ประวัติเงินเดือนรายปี
 // บันทึกเงินเดือนแต่ละปี เพื่อดูพัฒนาการและ % การขึ้นเงินเดือน
-// ข้อมูลถูกบันทึกใน data/db/salary_history.csv
+// ข้อมูลถูกบันทึกใน SQLite table "SalaryHistories"
 // ========================================================
 
 public class SalaryHistory

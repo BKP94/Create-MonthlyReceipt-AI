@@ -8,7 +8,7 @@ namespace FinanceApi.Controllers;
 // BudgetController.cs — API ตั้งค่างบประมาณ
 // URL: /api/budget
 // รองรับ GET (ดึงค่าปัจจุบัน) และ PUT (อัปเดต)
-// ข้อมูลถูกบันทึกลง data/db/budget.csv ผ่าน CsvDataService
+// ข้อมูลถูกบันทึกลง SQLite ผ่าน SqliteDataService
 // ========================================================
 
 [ApiController]

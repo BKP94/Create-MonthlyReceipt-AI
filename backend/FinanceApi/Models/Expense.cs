@@ -2,7 +2,7 @@ namespace FinanceApi.Models;
 
 // ========================================================
 // Expense.cs — Model รายจ่ายรายเดือน
-// Model คือ class ที่ใช้แทนโครงสร้างข้อมูล 1 แถวใน expenses.csv
+// Model คือ class ที่ใช้แทนโครงสร้างข้อมูล 1 แถวใน table Expenses
 // ASP.NET Core จะ serialize/deserialize JSON ↔ class นี้อัตโนมัติ
 // ========================================================
 
