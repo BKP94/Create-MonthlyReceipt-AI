@@ -1,3 +1,12 @@
+// ========================================================
+// Budget.jsx — หน้าตั้งค่างบประมาณ
+// ฟีเจอร์:
+//   - แสดงงบประมาณปัจจุบัน (Gross → หัก → สุทธิ → แบ่งหมวด)
+//   - ฟอร์มแก้ไข พร้อม live calculation (คำนวณทันทีที่พิมพ์)
+//   - Validate ก่อนบันทึก (สัดส่วนต้องรวม 100%, ไม่ติดลบ ฯลฯ)
+//   - บันทึกผ่าน PUT /api/budget
+// ========================================================
+
 import { useState, useEffect } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, CircularProgress,
@@ -12,6 +21,10 @@ import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import { budgetApi } from '../api/financeApi';
 import { formatCurrency } from '../utils/formatters';
 
+// =====================================================
+// BudgetResultCard — การ์ดแสดงงบแต่ละหมวด (หนี้/ผ่อน, ประจำวัน, เก็บออม)
+// มีเส้นซ้ายสีตาม color prop
+// =====================================================
 const BudgetResultCard = ({ title, amount, percent, icon, color }) => (
   <Card sx={{ borderLeft: '4px solid', borderColor: color }}>
     <CardContent sx={{ p: 2 }}>
@@ -29,6 +42,10 @@ const BudgetResultCard = ({ title, amount, percent, icon, color }) => (
   </Card>
 );
 
+// =====================================================
+// DeductionRow — แถวแสดงรายการหักเงินเดือน
+// มีไอคอน "-" และแสดงจำนวนเงินสีแดง
+// =====================================================
 const DeductionRow = ({ label, amount }) => (
   <Box display="flex" justifyContent="space-between" alignItems="center" py={0.5}>
     <Box display="flex" alignItems="center" gap={0.5}>
@@ -41,23 +58,29 @@ const DeductionRow = ({ label, amount }) => (
   </Box>
 );
 
+// =====================================================
+// Budget — Component หลักของหน้าตั้งค่างบประมาณ
+// =====================================================
 export default function Budget() {
-  const [budget, setBudget] = useState(null);
+  const [budget, setBudget] = useState(null);    // ข้อมูลงบปัจจุบันจาก API
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
 
+  // form — state ของฟอร์มแก้ไข (ทุก field เป็น string เพราะ <input> ต้องการ string)
   const [form, setForm] = useState({
     Salary: '', SocialSecurity: '0', StudentLoan: '0', OtherDeductions: '0',
     DebtPercent: '50', DailyExpensePercent: '30', SavingsPercent: '20',
   });
   const [errors, setErrors] = useState({});
 
+  // โหลดข้อมูลงบปัจจุบันครั้งแรก
   useEffect(() => {
     const fetchBudget = async () => {
       try {
         const res = await budgetApi.get();
         setBudget(res.data);
+        // เติมค่าลงฟอร์ม — แปลง number เป็น string ด้วย toString()
         setForm({
           Salary:              res.data.Salary?.toString(),
           SocialSecurity:      res.data.SocialSecurity?.toString() ?? '0',
@@ -78,18 +101,22 @@ export default function Budget() {
 
   const showSnack = (msg, severity = 'success') => setSnack({ open: true, msg, severity });
 
-  // คำนวณ live
+  // =====================================================
+  // Live Calculation — คำนวณทันทีขณะพิมพ์
+  // parseFloat(form.X) || 0 → ถ้ายังพิมพ์ไม่ครบหรือเป็น NaN ใช้ 0 แทน
+  // =====================================================
   const salary        = parseFloat(form.Salary) || 0;
   const socialSec     = parseFloat(form.SocialSecurity) || 0;
   const studentLoan   = parseFloat(form.StudentLoan) || 0;
   const otherDed      = parseFloat(form.OtherDeductions) || 0;
   const totalDed      = socialSec + studentLoan + otherDed;
-  const netSalary     = salary - totalDed;
+  const netSalary     = salary - totalDed;      // เงินเดือนสุทธิ (live)
   const debtPct       = parseFloat(form.DebtPercent) || 0;
   const dailyPct      = parseFloat(form.DailyExpensePercent) || 0;
   const savingsPct    = parseFloat(form.SavingsPercent) || 0;
-  const totalPct      = debtPct + dailyPct + savingsPct;
+  const totalPct      = debtPct + dailyPct + savingsPct;  // รวมสัดส่วน (ต้องได้ 100)
 
+  // validate — ตรวจสอบข้อมูลก่อนบันทึก
   const validate = () => {
     const e = {};
     if (!form.Salary || salary <= 0) e.Salary = 'กรุณาระบุเงินเดือนที่ถูกต้อง';
@@ -97,6 +124,7 @@ export default function Budget() {
     if (studentLoan < 0) e.StudentLoan = 'ต้องไม่ติดลบ';
     if (otherDed < 0) e.OtherDeductions = 'ต้องไม่ติดลบ';
     if (totalDed >= salary) e._deduction = 'รายการหักรวมต้องน้อยกว่าเงินเดือน';
+    // Math.abs(totalPct - 100) > 0.01 → ป้องกัน floating point error เล็กน้อย
     if (Math.abs(totalPct - 100) > 0.01) e._total = `สัดส่วนรวมต้องเท่ากับ 100% (ปัจจุบัน: ${totalPct.toFixed(2)}%)`;
     return e;
   };
@@ -111,28 +139,32 @@ export default function Budget() {
         StudentLoan: studentLoan, OtherDeductions: otherDed,
         DebtPercent: debtPct, DailyExpensePercent: dailyPct, SavingsPercent: savingsPct,
       });
-      setBudget(res.data);
+      setBudget(res.data); // อัปเดต budget ที่แสดง
       showSnack('บันทึกงบประมาณเรียบร้อยแล้ว');
       setErrors({});
     } catch (err) {
+      // แสดง error message จาก backend ถ้ามี
       showSnack(err.response?.data?.message ?? 'เกิดข้อผิดพลาด', 'error');
     } finally {
       setSaving(false);
     }
   };
 
+  // set — helper สร้าง onChange handler
+  // เมื่อพิมพ์ก็ clear error ของ field นั้นด้วย
   const set = (k) => (e) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
     setErrors((prev) => ({ ...prev, [k]: undefined, _total: undefined, _deduction: undefined }));
   };
 
+  // แสดง loading spinner ขณะโหลดข้อมูลครั้งแรก
   if (loading) return <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>;
 
   return (
     <Box maxWidth={760} mx="auto">
       <Typography variant="h5" mb={3}>ตั้งค่างบประมาณ</Typography>
 
-      {/* สรุปงบปัจจุบัน */}
+      {/* ส่วนที่ 1 — แสดงงบประมาณปัจจุบัน (ข้อมูลที่บันทึกล่าสุด) */}
       {budget && (
         <Card sx={{ mb: 3 }}>
           <CardContent sx={{ p: 2.5 }}>
@@ -144,15 +176,17 @@ export default function Budget() {
               </Typography>
             </Box>
 
-            {/* เงินเดือน → หัก → สุทธิ */}
+            {/* กล่อง 3 ช่อง: เงินเดือน → รายการหัก → เงินเดือนสุทธิ */}
             <Grid container spacing={1.5} mb={2}>
               <Grid item xs={12} sm={4}>
+                {/* กล่องน้ำเงิน — เงินเดือนก่อนหัก */}
                 <Box sx={{ bgcolor: 'primary.main', color: 'white', borderRadius: 2, p: 2, textAlign: 'center', height: '100%' }}>
                   <Typography variant="caption" sx={{ opacity: 0.85 }}>เงินเดือน (Gross)</Typography>
                   <Typography variant="h5" fontWeight={700}>฿{formatCurrency(budget.Salary)}</Typography>
                 </Box>
               </Grid>
               <Grid item xs={12} sm={4}>
+                {/* กล่องส้มอ่อน — รายการหักทั้งหมด */}
                 <Box sx={{ bgcolor: '#FFF3E0', borderRadius: 2, p: 2, height: '100%' }}>
                   <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>รายการหัก</Typography>
                   <DeductionRow label="ประกันสังคม" amount={budget.SocialSecurity} />
@@ -168,6 +202,7 @@ export default function Budget() {
                 </Box>
               </Grid>
               <Grid item xs={12} sm={4}>
+                {/* กล่องเขียว — เงินเดือนสุทธิ (ใช้คำนวณ 50/30/20) */}
                 <Box sx={{ bgcolor: 'success.main', color: 'white', borderRadius: 2, p: 2, textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                   <Typography variant="caption" sx={{ opacity: 0.85 }}>เงินเดือนสุทธิ</Typography>
                   <Typography variant="h5" fontWeight={700}>฿{formatCurrency(budget.NetSalary)}</Typography>
@@ -178,7 +213,7 @@ export default function Budget() {
               </Grid>
             </Grid>
 
-            {/* งบแต่ละส่วน */}
+            {/* การ์ดงบแต่ละหมวด */}
             <Grid container spacing={1.5}>
               <Grid item xs={12} sm={4}>
                 <BudgetResultCard title="หนี้/ผ่อน" amount={budget.DebtBudget}
@@ -197,7 +232,7 @@ export default function Budget() {
         </Card>
       )}
 
-      {/* ฟอร์มแก้ไข */}
+      {/* ส่วนที่ 2 — ฟอร์มแก้ไขงบประมาณ */}
       <Card>
         <CardContent sx={{ p: 2.5 }}>
           <Typography variant="subtitle1" fontWeight={600} mb={2}>แก้ไขงบประมาณ</Typography>
@@ -205,24 +240,26 @@ export default function Budget() {
 
           <Grid container spacing={2.5}>
 
-            {/* เงินเดือน */}
+            {/* เงินเดือน (Gross) */}
             <Grid item xs={12}>
               <TextField
                 label="เงินเดือน (บาท)" fullWidth type="number"
                 value={form.Salary} onChange={set('Salary')}
                 error={!!errors.Salary} helperText={errors.Salary}
+                // InputProps → เพิ่ม ฿ ด้านหน้า input
                 InputProps={{ startAdornment: <InputAdornment position="start">฿</InputAdornment> }}
                 inputProps={{ min: 0, step: '0.01' }}
               />
             </Grid>
 
-            {/* รายการหัก */}
+            {/* หัวข้อ รายการหัก */}
             <Grid item xs={12}>
               <Typography variant="body2" color="text.secondary" mb={1}>
                 รายการหัก (หักก่อนคำนวณ 50/30/20)
               </Typography>
             </Grid>
 
+            {/* ประกันสังคม */}
             <Grid item xs={12} sm={4}>
               <TextField
                 label="ประกันสังคม (บาท)" fullWidth type="number"
@@ -232,6 +269,7 @@ export default function Budget() {
                 inputProps={{ min: 0, step: '0.01' }}
               />
             </Grid>
+            {/* กยศ. */}
             <Grid item xs={12} sm={4}>
               <TextField
                 label="กยศ. (บาท)" fullWidth type="number"
@@ -241,6 +279,7 @@ export default function Budget() {
                 inputProps={{ min: 0, step: '0.01' }}
               />
             </Grid>
+            {/* อื่นๆ */}
             <Grid item xs={12} sm={4}>
               <TextField
                 label="อื่นๆ (บาท)" fullWidth type="number"
@@ -251,12 +290,13 @@ export default function Budget() {
               />
             </Grid>
 
-            {/* แสดงเงินเดือนสุทธิ live */}
+            {/* กล่องแสดงเงินเดือนสุทธิ Live */}
             <Grid item xs={12}>
               <Box
                 sx={{
                   p: 2,
                   borderRadius: 2,
+                  // เขียวเมื่อ netSalary > 0, แดงเมื่อ ≤ 0 (หักเกินเงินเดือน)
                   bgcolor: netSalary > 0 ? '#E8F5E9' : '#FFEBEE',
                   border: '1px solid',
                   borderColor: netSalary > 0 ? 'success.light' : 'error.light',
@@ -287,16 +327,18 @@ export default function Budget() {
                   </Grid>
                 </Grid>
               </Box>
+              {/* Error ถ้าหักเกินเงินเดือน */}
               {errors._deduction && <Alert severity="error" sx={{ mt: 1 }}>{errors._deduction}</Alert>}
             </Grid>
 
-            {/* สัดส่วน */}
+            {/* หัวข้อ สัดส่วน */}
             <Grid item xs={12}>
               <Typography variant="body2" color="text.secondary" mb={1}>
                 สัดส่วนงบประมาณจากเงินเดือนสุทธิ (รวมต้องได้ 100%)
               </Typography>
             </Grid>
 
+            {/* หนี้/ผ่อน % — helperText แสดงยอดเงินตามสัดส่วน (live) */}
             <Grid item xs={12} sm={4}>
               <TextField
                 label="หนี้/ผ่อน (%)" fullWidth type="number"
@@ -307,6 +349,7 @@ export default function Budget() {
                 inputProps={{ min: 0, max: 100, step: '0.5' }}
               />
             </Grid>
+            {/* ประจำวัน % */}
             <Grid item xs={12} sm={4}>
               <TextField
                 label="ประจำวัน (%)" fullWidth type="number"
@@ -317,6 +360,7 @@ export default function Budget() {
                 inputProps={{ min: 0, max: 100, step: '0.5' }}
               />
             </Grid>
+            {/* เงินเก็บ % */}
             <Grid item xs={12} sm={4}>
               <TextField
                 label="เงินเก็บ (%)" fullWidth type="number"
@@ -328,7 +372,7 @@ export default function Budget() {
               />
             </Grid>
 
-            {/* ตัวบอกสัดส่วน */}
+            {/* ตัวบอกผลรวมสัดส่วน — เขียวถ้า =100%, แดงถ้าไม่ใช่ */}
             <Grid item xs={12}>
               <Box
                 sx={{
@@ -351,6 +395,7 @@ export default function Budget() {
               {errors._total && <Alert severity="error" sx={{ mt: 1 }}>{errors._total}</Alert>}
             </Grid>
 
+            {/* ปุ่มบันทึก */}
             <Grid item xs={12}>
               <Button
                 variant="contained" size="large" fullWidth
@@ -364,6 +409,7 @@ export default function Budget() {
         </CardContent>
       </Card>
 
+      {/* Snackbar แจ้งผลการบันทึก */}
       <Snackbar
         open={snack.open} autoHideDuration={3000}
         onClose={() => setSnack((s) => ({ ...s, open: false }))}

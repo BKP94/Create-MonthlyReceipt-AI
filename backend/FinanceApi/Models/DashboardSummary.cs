@@ -1,44 +1,58 @@
 namespace FinanceApi.Models;
 
+// ========================================================
+// DashboardSummary.cs — Model ข้อมูลสรุปสำหรับ Dashboard
+// DashboardController รวมข้อมูลจากทุกส่วนแล้วส่งเป็น object นี้
+// ========================================================
+
+// ข้อมูลรายจ่ายรายเดือน สำหรับ BarChart แนวโน้ม 6 เดือน
 public class MonthlyTrend
 {
-    public string Month { get; set; } = string.Empty; // YYYY-MM
+    public string Month { get; set; } = string.Empty; // รูปแบบ "YYYY-MM" เช่น "2026-05"
     public int Year { get; set; }
-    public int MonthNumber { get; set; }
-    public string MonthName { get; set; } = string.Empty;
-    public decimal TotalExpenses { get; set; }
-    public List<Expense> Expenses { get; set; } = [];
+    public int MonthNumber { get; set; }              // เลขเดือน 1-12
+    public string MonthName { get; set; } = string.Empty; // ชื่อเดือนภาษาไทย เช่น "พฤษภาคม 2569"
+    public decimal TotalExpenses { get; set; }        // ยอดรวมรายจ่ายทั้งเดือน
+    public List<Expense> Expenses { get; set; } = []; // รายการรายจ่ายทั้งหมดของเดือนนั้น
 }
 
+// สรุปรวมทุกอย่างสำหรับแสดงผลในหน้า Dashboard
 public class DashboardSummary
 {
+    // ปีและเดือนที่กำลังดูอยู่
     public int Year { get; set; }
     public int Month { get; set; }
-    public string MonthName { get; set; } = string.Empty;
+    public string MonthName { get; set; } = string.Empty; // เช่น "พฤษภาคม 2569"
 
-    // งบประมาณ
-    public decimal Salary { get; set; }
-    public decimal DebtBudget { get; set; }
-    public decimal DailyBudget { get; set; }
-    public decimal SavingsBudget { get; set; }
+    // =====================================================
+    // งบประมาณตั้งไว้ (จาก Budget settings)
+    // =====================================================
+    public decimal Salary { get; set; }         // เงินเดือนสุทธิ (NetSalary)
+    public decimal DebtBudget { get; set; }     // งบหนี้/ผ่อน (50% ของ NetSalary)
+    public decimal DailyBudget { get; set; }    // งบประจำวัน (30%)
+    public decimal SavingsBudget { get; set; }  // งบเงินเก็บ (20%)
 
-    // ยอดจริงเดือนนี้
-    public decimal TotalExpenses { get; set; }
-    public decimal Remaining { get; set; }
-    public decimal TotalDebtExpenses { get; set; }
-    public decimal TotalDailyExpenses { get; set; }
-    public decimal TotalInstallmentsMonthly { get; set; }
+    // =====================================================
+    // ยอดใช้จ่ายจริงเดือนนี้ (จาก Expenses)
+    // =====================================================
+    public decimal TotalExpenses { get; set; }       // รายจ่ายรวมทั้งหมด
+    public decimal Remaining { get; set; }            // เงินคงเหลือ = NetSalary - TotalExpenses
+    public decimal TotalDebtExpenses { get; set; }   // รายจ่ายหมวด debt รวม
+    public decimal TotalDailyExpenses { get; set; }  // รายจ่ายหมวด daily รวม
+    public decimal TotalInstallmentsMonthly { get; set; } // ยอดผ่อนที่ต้องจ่ายเดือนนี้
 
-    // เปอร์เซ็นต์การใช้งาน
-    public decimal DebtUsagePercent { get; set; }
-    public decimal DailyUsagePercent { get; set; }
+    // =====================================================
+    // เปอร์เซ็นต์การใช้งบ — ใช้แสดง progress bar
+    // =====================================================
+    public decimal DebtUsagePercent { get; set; }    // ใช้งบหนี้ไปกี่ %
+    public decimal DailyUsagePercent { get; set; }   // ใช้งบประจำวันไปกี่ %
 
-    // รายการผ่อนที่ยังค้างอยู่
+    // รายการผ่อนที่ยังไม่หมด (IsCompleted = false) — แสดงในตารางด้านล่าง
     public List<Installment> ActiveInstallments { get; set; } = [];
 
-    // รายจ่ายเดือนนี้
+    // รายจ่ายทั้งหมดของเดือนที่กำลังดูอยู่
     public List<Expense> CurrentMonthExpenses { get; set; } = [];
 
-    // แนวโน้ม 6 เดือนล่าสุด
+    // ข้อมูล 6 เดือนล่าสุด สำหรับ BarChart
     public List<MonthlyTrend> MonthlyTrend { get; set; } = [];
 }

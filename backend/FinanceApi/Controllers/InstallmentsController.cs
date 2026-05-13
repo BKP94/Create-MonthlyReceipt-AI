@@ -4,10 +4,18 @@ using FinanceApi.Services;
 
 namespace FinanceApi.Controllers;
 
+// ========================================================
+// InstallmentsController.cs — API รายการผ่อนชำระ
+// URL: /api/installments
+// รองรับ CRUD ครบ + filter เฉพาะรายการที่ยังผ่อนอยู่
+// ========================================================
+
 [ApiController]
 [Route("api/[controller]")]
 public class InstallmentsController(CsvDataService csv) : ControllerBase
 {
+    // GET /api/installments — ดึงทั้งหมด
+    // GET /api/installments?activeOnly=true — ดึงเฉพาะที่ยังไม่หมด (IsCompleted = false)
     [HttpGet]
     public IActionResult GetAll([FromQuery] bool? activeOnly)
     {
@@ -17,6 +25,7 @@ public class InstallmentsController(CsvDataService csv) : ControllerBase
         return Ok(list);
     }
 
+    // GET /api/installments/1
     [HttpGet("{id:int}")]
     public IActionResult GetById(int id)
     {
@@ -25,9 +34,11 @@ public class InstallmentsController(CsvDataService csv) : ControllerBase
         return Ok(item);
     }
 
+    // POST /api/installments — เพิ่มรายการผ่อนใหม่
     [HttpPost]
     public IActionResult Create([FromBody] Installment installment)
     {
+        // Validate ข้อมูลสำคัญก่อนบันทึก
         if (string.IsNullOrWhiteSpace(installment.Name))
             return BadRequest(new { message = "กรุณาระบุชื่อรายการผ่อน" });
         if (installment.MonthlyAmount <= 0)
@@ -43,6 +54,7 @@ public class InstallmentsController(CsvDataService csv) : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
+    // PUT /api/installments/1 — แก้ไข (ใช้บันทึกงวดที่จ่ายแล้ว PaidInstallments++)
     [HttpPut("{id:int}")]
     public IActionResult Update(int id, [FromBody] Installment installment)
     {
@@ -58,6 +70,7 @@ public class InstallmentsController(CsvDataService csv) : ControllerBase
         return Ok(updated);
     }
 
+    // DELETE /api/installments/1
     [HttpDelete("{id:int}")]
     public IActionResult Delete(int id)
     {
