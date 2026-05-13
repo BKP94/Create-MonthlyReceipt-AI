@@ -19,7 +19,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { expenseApi } from '../api/financeApi';
+import { expenseApi, installmentApi } from '../api/financeApi';
 import ConfirmDialog from '../components/ConfirmDialog';
 import MonthSelector from '../components/MonthSelector';
 import {
@@ -214,12 +214,48 @@ export default function Expenses() {
   // handleTogglePaid — สลับสถานะชำระของรายการ
   // ใช้ Optimistic Update: อัปเดต state ทันที → ส่ง API → ถ้า error ให้ revert กลับ
   // วิธีนี้ทำให้ UI ตอบสนองทันทีโดยไม่ต้องรอ API
+  //
+  // พิเศษ: ถ้า category = "debt" → หารายการผ่อนที่ชื่อตรงกัน (case-insensitive)
+  //   - ติ๊ก (true)  → PaidInstallments + 1
+  //   - เอาออก (false) → PaidInstallments - 1 (ไม่ต่ำกว่า 0)
   const handleTogglePaid = async (exp) => {
     const newVal = !exp.IsPaid;
+
     // อัปเดต state ทันที (Optimistic Update)
     setExpenses((prev) => prev.map((e) => e.Id === exp.Id ? { ...e, IsPaid: newVal } : e));
+
     try {
+      // 1) อัปเดตสถานะชำระของรายจ่าย
       await expenseApi.togglePaid(exp.Id, newVal); // PATCH /api/expenses/:id/paid
+
+      // 2) ถ้าเป็นหมวด "debt" → ค้นหารายการผ่อนที่ชื่อตรงกันแล้วอัปเดต PaidInstallments
+      if (exp.Category === 'debt') {
+        // ดึงรายการผ่อนทั้งหมด (activeOnly=false เพื่อรวมที่ครบแล้วด้วย)
+        const instRes = await installmentApi.getAll(false);
+
+        // ค้นหาด้วยชื่อ (trim + lowercase) — ถ้าชื่อตรงกัน และยังไม่ครบงวด
+        const match = instRes.data.find(
+          (i) =>
+            i.Name.trim().toLowerCase() === exp.Name.trim().toLowerCase() &&
+            !i.IsCompleted
+        );
+
+        if (match) {
+          // คำนวณงวดใหม่ — ป้องกันติดลบและเกินจำนวนงวดทั้งหมด
+          const newPaid = newVal
+            ? Math.min(match.PaidInstallments + 1, match.TotalInstallments) // ติ๊ก → +1
+            : Math.max(match.PaidInstallments - 1, 0);                      // เอาออก → -1
+
+          // อัปเดตเฉพาะเมื่อค่าเปลี่ยนจริง
+          if (newPaid !== match.PaidInstallments) {
+            // PUT /api/installments/:id — ส่งข้อมูลครบทุก field พร้อม PaidInstallments ใหม่
+            await installmentApi.update(match.Id, {
+              ...match,
+              PaidInstallments: newPaid,
+            });
+          }
+        }
+      }
     } catch {
       // ถ้า API ล้มเหลว revert state กลับค่าเดิม
       setExpenses((prev) => prev.map((e) => e.Id === exp.Id ? { ...e, IsPaid: exp.IsPaid } : e));
