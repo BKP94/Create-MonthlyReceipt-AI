@@ -233,12 +233,21 @@ export default function Expenses() {
         // ดึงรายการผ่อนทั้งหมด (activeOnly=false เพื่อรวมที่ครบแล้วด้วย)
         const instRes = await installmentApi.getAll(false);
 
-        // ค้นหาด้วยชื่อ (trim + lowercase) — ถ้าชื่อตรงกัน และยังไม่ครบงวด
-        const match = instRes.data.find(
-          (i) =>
-            i.Name.trim().toLowerCase() === exp.Name.trim().toLowerCase() &&
-            !i.IsCompleted
-        );
+        // normalize — ตัดคำว่า "บัตร" นำหน้า + trim + lowercase
+        // เพราะรายจ่ายที่จ่ายผ่านบัตรเครดิตจะมี "บัตร " นำหน้า เช่น "บัตร ผ่อนยาง"
+        // แต่รายการผ่อนชื่อ "ผ่อนยาง" → ต้องตัด prefix ออกก่อนเทียบ
+        const normalize = (s) =>
+          (s ?? '').trim().toLowerCase().replace(/^บัตร\s*/, '').trim();
+
+        const expName = normalize(exp.Name);
+
+        // ค้นหาด้วยชื่อที่ normalize แล้ว — ตรงกันเป๊ะ หรือชื่อผ่อนเป็นส่วนหนึ่งของชื่อรายจ่าย
+        // (รองรับทั้ง "ผ่อนยาง"="ผ่อนยาง" และ "บัตร ผ่อนยาง"→"ผ่อนยาง")
+        const match = instRes.data.find((i) => {
+          if (i.IsCompleted) return false;
+          const instName = normalize(i.Name);
+          return expName === instName || expName.includes(instName);
+        });
 
         if (match) {
           // คำนวณงวดใหม่ — ป้องกันติดลบและเกินจำนวนงวดทั้งหมด
