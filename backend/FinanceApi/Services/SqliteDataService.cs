@@ -40,6 +40,26 @@ public class SqliteDataService(IDbContextFactory<FinanceDbContext> factory)
         return db.Expenses.FirstOrDefault(e => e.Id == id);
     }
 
+    // แปลง DueDate ที่บันทึกในรูปแบบเก่า (d/M/yyyy) → yyyy-MM-dd
+    // ใช้ raw SQL เพราะ SQLite string functions แม่นยำกว่า LINQ translation
+    public void NormalizeDueDates()
+    {
+        using var db = Db();
+        db.Database.ExecuteSqlRaw(@"
+            UPDATE Expenses
+            SET DueDate = (
+                SUBSTR(DueDate,
+                    INSTR(DueDate, '/') + INSTR(SUBSTR(DueDate, INSTR(DueDate, '/') + 1), '/') + 1, 4)
+                || '-' ||
+                SUBSTR('00' || SUBSTR(SUBSTR(DueDate, INSTR(DueDate, '/') + 1), 1,
+                    INSTR(SUBSTR(DueDate, INSTR(DueDate, '/') + 1), '/') - 1), -2)
+                || '-' ||
+                SUBSTR('00' || SUBSTR(DueDate, 1, INSTR(DueDate, '/') - 1), -2)
+            )
+            WHERE DueDate LIKE '%/%'
+        ");
+    }
+
     public Expense AddExpense(Expense expense)
     {
         using var db = Db();

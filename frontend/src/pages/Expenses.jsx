@@ -246,7 +246,7 @@ export default function Expenses() {
         const match = instRes.data.find((i) => {
           if (i.IsCompleted) return false;
           const instName = normalize(i.Name);
-          return expName === instName || expName.includes(instName);
+          return expName === instName || expName.includes(instName) || instName.includes(expName);
         });
 
         if (match) {
@@ -386,10 +386,10 @@ export default function Expenses() {
                         ฿{formatCurrency(exp.Amount)}
                       </TableCell>
 
-                      {/* วันครบกำหนด — แปลง ISO date เป็นรูปแบบไทย */}
+                      {/* วันครบกำหนด — แสดงในรูปแบบ yyyy-dd-mm */}
                       <TableCell align="center">
                         {exp.DueDate
-                          ? new Date(exp.DueDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
+                          ? new Date(exp.DueDate).toLocaleDateString('en-CA').replace(/(\d{4})-(\d{2})-(\d{2})/, '$1-$3-$2')
                           : '-'}
                       </TableCell>
 

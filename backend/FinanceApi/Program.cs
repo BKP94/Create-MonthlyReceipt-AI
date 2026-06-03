@@ -59,6 +59,9 @@ using (var scope = app.Services.CreateScope())
     db.Database.EnsureCreated();
 }
 
+// Normalize DueDates — แปลง format เก่า (d/M/yyyy) → yyyy-MM-dd ครั้งเดียวตอน startup
+app.Services.GetRequiredService<SqliteDataService>().NormalizeDueDates();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
