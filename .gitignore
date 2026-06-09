@@ -2,6 +2,7 @@
 backend/FinanceApi/bin/
 backend/FinanceApi/obj/
 backend/FinanceApi/*.user
+backend/FinanceApi/*.lscache
 
 # Node / Frontend
 frontend/node_modules/
