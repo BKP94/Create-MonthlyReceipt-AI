@@ -1,5 +1,23 @@
 namespace FinanceApi.Models;
 
+// สรุปรายจ่ายรายเดือนสำหรับ 1 เดือน (ใช้ใน YearlySummary)
+public class MonthYearlySummary
+{
+    public int Month { get; set; }
+    public string MonthName { get; set; } = string.Empty;
+    public decimal TotalExpenses { get; set; }
+    public decimal Remaining { get; set; }
+    public int ExpenseCount { get; set; }
+}
+
+// สรุปรายจ่ายรายปี 12 เดือน สำหรับหน้า Monthly Summary
+public class YearlySummary
+{
+    public int Year { get; set; }
+    public decimal Salary { get; set; }
+    public List<MonthYearlySummary> Months { get; set; } = [];
+}
+
 // ========================================================
 // DashboardSummary.cs — Model ข้อมูลสรุปสำหรับ Dashboard
 // DashboardController รวมข้อมูลจากทุกส่วนแล้วส่งเป็น object นี้

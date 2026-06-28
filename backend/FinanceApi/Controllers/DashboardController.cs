@@ -94,6 +94,38 @@ public class DashboardController(SqliteDataService db) : ControllerBase
         return Ok(summary);
     }
 
+    // GET /api/dashboard/yearly?year=2026
+    // คืนยอดรายจ่ายและคงเหลือทั้ง 12 เดือนของปีนั้น
+    [HttpGet("yearly")]
+    public IActionResult GetYearly([FromQuery] int? year)
+    {
+        int y = year ?? DateTime.Now.Year;
+
+        var budget = db.GetBudget();
+        var allExpenses = db.GetAllExpenses();
+
+        var months = Enumerable.Range(1, 12).Select(m =>
+        {
+            var monthExpenses = allExpenses.Where(e => e.Year == y && e.Month == m).ToList();
+            var total = monthExpenses.Sum(e => e.Amount);
+            return new MonthYearlySummary
+            {
+                Month        = m,
+                MonthName    = ThaiMonths[m],
+                TotalExpenses = total,
+                Remaining    = budget.NetSalary - total,
+                ExpenseCount = monthExpenses.Count,
+            };
+        }).ToList();
+
+        return Ok(new YearlySummary
+        {
+            Year   = y,
+            Salary = budget.NetSalary,
+            Months = months,
+        });
+    }
+
     // สร้างข้อมูลแนวโน้ม 6 เดือนย้อนหลัง
     // i=5 คือเดือนที่เก่าสุด, i=0 คือเดือนปัจจุบัน
     private List<MonthlyTrend> BuildTrend(List<Expense> allExpenses, int year, int month)

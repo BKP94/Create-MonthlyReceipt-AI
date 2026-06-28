@@ -22,6 +22,7 @@ import CreditCardIcon from '@mui/icons-material/CreditCard';
 import TuneIcon from '@mui/icons-material/Tune';
 import SavingsIcon from '@mui/icons-material/Savings';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 
 // ความกว้างของ Sidebar (px)
 const DRAWER_WIDTH = 248;
@@ -29,11 +30,12 @@ const DRAWER_WIDTH = 248;
 // navItems — รายการเมนูนำทางทั้งหมด
 // label: ชื่อที่แสดง, path: URL, icon: ไอคอน MUI
 const navItems = [
-  { label: 'แดชบอร์ด',        path: '/',              icon: <DashboardIcon /> },
-  { label: 'รายจ่ายรายเดือน', path: '/expenses',      icon: <ReceiptLongIcon /> },
-  { label: 'ผ่อนชำระ',        path: '/installments',  icon: <CreditCardIcon /> },
-  { label: 'ตั้งค่างบประมาณ', path: '/budget',          icon: <TuneIcon /> },
-  { label: 'ประวัติเงินเดือน', path: '/salary-history', icon: <TrendingUpIcon /> },
+  { label: 'แดชบอร์ด',          path: '/',                icon: <DashboardIcon /> },
+  { label: 'รายจ่ายรายเดือน',   path: '/expenses',        icon: <ReceiptLongIcon /> },
+  { label: 'สรุปรายเดือน',      path: '/monthly-summary', icon: <CalendarMonthIcon /> },
+  { label: 'ผ่อนชำระ',          path: '/installments',    icon: <CreditCardIcon /> },
+  { label: 'ตั้งค่างบประมาณ',   path: '/budget',          icon: <TuneIcon /> },
+  { label: 'ประวัติเงินเดือน',  path: '/salary-history',  icon: <TrendingUpIcon /> },
 ];
 
 // Layout รับ children prop — เนื้อหาแต่ละหน้าจะถูกวางใน Box component="main"

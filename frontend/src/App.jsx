@@ -17,6 +17,7 @@ import Expenses from './pages/Expenses';
 import Installments from './pages/Installments';
 import Budget from './pages/Budget';
 import SalaryHistory from './pages/SalaryHistory';
+import MonthlySummary from './pages/MonthlySummary';
 
 export default function App() {
   return (
@@ -48,6 +49,9 @@ export default function App() {
 
             {/* /salary-history → หน้าประวัติเงินเดือนรายปี */}
             <Route path="/salary-history" element={<SalaryHistory />} />
+
+            {/* /monthly-summary → หน้าสรุปรายจ่ายรายเดือน 12 การ์ด */}
+            <Route path="/monthly-summary" element={<MonthlySummary />} />
           </Routes>
         </Layout>
       </BrowserRouter>

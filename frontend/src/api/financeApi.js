@@ -66,6 +66,8 @@ export const budgetApi = {
 export const dashboardApi = {
   get: (year, month) =>
     api.get('/dashboard', { params: year && month ? { year, month } : {} }),
+  getYearly: (year) =>
+    api.get('/dashboard/yearly', { params: year ? { year } : {} }),
 };
 
 // =====================================================
