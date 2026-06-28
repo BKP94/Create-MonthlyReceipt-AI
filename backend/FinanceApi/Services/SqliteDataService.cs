@@ -1,3 +1,4 @@
+using System.Globalization;
 using FinanceApi.Data;
 using FinanceApi.Models;
 using Microsoft.EntityFrameworkCore;
@@ -116,8 +117,39 @@ public class SqliteDataService(IDbContextFactory<FinanceDbContext> factory)
         using var db = Db();
         installment.Id = 0;
         db.Installments.Add(installment);
+        GenerateMonthlyExpenses(db, installment);
         db.SaveChanges();
         return installment;
+    }
+
+    // สร้าง Expense entries รายเดือนสำหรับงวดที่ยังไม่ได้ชำระ
+    private static void GenerateMonthlyExpenses(FinanceDbContext db, Installment inst)
+    {
+        int remaining = inst.TotalInstallments - inst.PaidInstallments;
+        if (remaining <= 0) return;
+
+        // ใช้ InvariantCulture เพื่อป้องกัน Windows Thai locale แปลงปี ค.ศ. เป็น พ.ศ. ผิด
+        if (!DateTime.TryParse(inst.StartDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var start))
+            start = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+        // เริ่มจากงวดแรกที่ยังไม่ได้จ่าย
+        var firstUnpaid = start.AddMonths(inst.PaidInstallments);
+        for (int i = 0; i < remaining; i++)
+        {
+            var d = firstUnpaid.AddMonths(i);
+            // DueDate ใช้วันเดียวกับ StartDate แต่ clamp ให้ไม่เกินวันสุดท้ายของเดือนนั้น
+            int day = Math.Min(start.Day, DateTime.DaysInMonth(d.Year, d.Month));
+            db.Expenses.Add(new Expense
+            {
+                Year     = d.Year,
+                Month    = d.Month,
+                Name     = inst.Name,
+                Amount   = inst.MonthlyAmount,
+                Category = "debt",
+                DueDate  = new DateTime(d.Year, d.Month, day).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                IsPaid   = false,
+            });
+        }
     }
 
     public Installment? UpdateInstallment(int id, Installment installment)
