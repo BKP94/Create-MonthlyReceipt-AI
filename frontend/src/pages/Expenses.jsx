@@ -8,19 +8,18 @@
 //   - Summary Chip แสดงยอดรวมแต่ละหมวด
 // ========================================================
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress,
   Dialog, DialogActions, DialogContent, DialogTitle,
-  FormControl, Grid, IconButton, InputLabel, MenuItem,
-  Paper, Select, Snackbar, Table, TableBody, TableCell,
+  FormControl, FormControlLabel, Grid, IconButton, InputLabel, MenuItem,
+  Paper, Select, Snackbar, Switch, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, TextField, Tooltip, Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { expenseApi, installmentApi } from '../api/financeApi';
-import ConfirmDialog from '../components/ConfirmDialog';
 import MonthSelector from '../components/MonthSelector';
 import {
   formatCurrency, thaiFullMonths, categoryConfig, YEARS,
@@ -54,17 +53,31 @@ function ExpenseDialog({ open, expense, defaultYear, defaultMonth, onClose, onSa
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [multiMonth, setMultiMonth] = useState(false);
+  const [monthCount, setMonthCount] = useState(3);
 
   // เมื่อ dialog เปิด — เติมข้อมูลเดิม (แก้ไข) หรือ reset (เพิ่มใหม่)
   useEffect(() => {
     if (open) {
       setForm(expense
-        ? { ...expense, Amount: expense.Amount?.toString() ?? '' } // แปลง Amount เป็น string สำหรับ input
+        ? { ...expense, Amount: expense.Amount?.toString() ?? '' }
         : { ...emptyForm, Year: defaultYear, Month: defaultMonth }
       );
       setErrors({});
+      setMultiMonth(false);
+      setMonthCount(3);
     }
   }, [open, expense, defaultYear, defaultMonth]);
+
+  // คำนวณช่วงเดือนที่จะเพิ่ม สำหรับแสดง preview
+  const previewRange = useMemo(() => {
+    const count = Math.max(2, Math.min(parseInt(monthCount) || 2, 24));
+    const startM = Number(form.Month);
+    const startY = Number(form.Year);
+    const endM = ((startM - 1 + count - 1) % 12) + 1;
+    const endY = startY + Math.floor((startM - 1 + count - 1) / 12);
+    return `${thaiFullMonths[startM]} ${startY + 543} – ${thaiFullMonths[endM]} ${endY + 543}`;
+  }, [form.Month, form.Year, monthCount]);
 
   // validate — ตรวจสอบข้อมูลก่อนบันทึก คืน object ของ errors
   const validate = () => {
@@ -78,15 +91,37 @@ function ExpenseDialog({ open, expense, defaultYear, defaultMonth, onClose, onSa
 
   const handleSave = async () => {
     const e = validate();
-    // ถ้ามี error ให้แสดงและหยุด
     if (Object.keys(e).length) { setErrors(e); return; }
     setSaving(true);
     try {
-      // แปลง string กลับเป็น number ก่อนส่ง API
-      const payload = { ...form, Amount: parseFloat(form.Amount), Year: Number(form.Year), Month: Number(form.Month) };
-      if (expense?.Id) await expenseApi.update(expense.Id, payload); // PUT
-      else await expenseApi.create(payload);                          // POST
-      onSaved('บันทึกรายการเรียบร้อยแล้ว');
+      if (expense?.Id) {
+        // แก้ไข — อัปเดตรายการเดียว
+        const payload = { ...form, Amount: parseFloat(form.Amount), Year: Number(form.Year), Month: Number(form.Month) };
+        await expenseApi.update(expense.Id, payload);
+        onSaved('บันทึกรายการเรียบร้อยแล้ว');
+      } else {
+        // เพิ่มใหม่ — ถ้า multiMonth ให้สร้างทีละเดือนวนไปตาม count
+        const count = multiMonth ? Math.max(2, Math.min(parseInt(monthCount) || 2, 24)) : 1;
+        const baseYear = Number(form.Year);
+        const baseMonth = Number(form.Month);
+        const amount = parseFloat(form.Amount);
+
+        for (let i = 0; i < count; i++) {
+          const m = ((baseMonth - 1 + i) % 12) + 1;
+          const y = baseYear + Math.floor((baseMonth - 1 + i) / 12);
+          // วันสิ้นเดือน: new Date(y, m, 0) = วันสุดท้ายของเดือน m
+          const lastDay = new Date(y, m, 0).getDate();
+          const due = multiMonth
+            ? `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+            : form.DueDate;
+          await expenseApi.create({ ...form, Amount: amount, Year: y, Month: m, DueDate: due });
+        }
+
+        onSaved(count > 1
+          ? `เพิ่มรายจ่าย ${count} เดือนเรียบร้อยแล้ว`
+          : 'บันทึกรายการเรียบร้อยแล้ว'
+        );
+      }
     } catch {
       onSaved('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
     } finally {
@@ -95,7 +130,6 @@ function ExpenseDialog({ open, expense, defaultYear, defaultMonth, onClose, onSa
   };
 
   // set — helper สร้าง onChange handler สำหรับแต่ละ field
-  // ตัวอย่าง: onChange={set('Name')} จะอัปเดต form.Name
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
@@ -131,40 +165,101 @@ function ExpenseDialog({ open, expense, defaultYear, defaultMonth, onClose, onSa
             <FormControl fullWidth>
               <InputLabel>ปี</InputLabel>
               <Select value={form.Year} label="ปี" onChange={set('Year')}>
-                {/* +543 แปลง ค.ศ. เป็น พ.ศ. */}
                 {YEARS.map((y) => <MenuItem key={y} value={y}>{y + 543}</MenuItem>)}
               </Select>
             </FormControl>
           </Grid>
-          {/* เดือน */}
+          {/* เดือน (เดือนเริ่มต้น) */}
           <Grid item xs={6} sm={6}>
             <FormControl fullWidth>
-              <InputLabel>เดือน</InputLabel>
-              <Select value={form.Month} label="เดือน" onChange={set('Month')}>
-                {/* slice(1) ตัด index 0 ที่เว้นว่างออก */}
+              <InputLabel>{multiMonth ? 'เดือนเริ่มต้น' : 'เดือน'}</InputLabel>
+              <Select value={form.Month} label={multiMonth ? 'เดือนเริ่มต้น' : 'เดือน'} onChange={set('Month')}>
                 {thaiFullMonths.slice(1).map((n, i) => (
                   <MenuItem key={i + 1} value={i + 1}>{n}</MenuItem>
                 ))}
               </Select>
             </FormControl>
           </Grid>
-          {/* วันครบกำหนด */}
-          <Grid item xs={12} sm={6}>
-            <TextField label="วันครบกำหนด" fullWidth type="date"
-              value={form.DueDate ?? ''} onChange={set('DueDate')}
-              InputLabelProps={{ shrink: true }} />
-          </Grid>
+          {/* วันครบกำหนด — ซ่อนเมื่อ multiMonth เพราะจะ auto-set เป็นสิ้นเดือน */}
+          {!multiMonth && (
+            <Grid item xs={12} sm={6}>
+              <TextField label="วันครบกำหนด" fullWidth type="date"
+                value={form.DueDate ?? ''} onChange={set('DueDate')}
+                InputLabelProps={{ shrink: true }} />
+            </Grid>
+          )}
           {/* หมายเหตุ */}
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} sm={multiMonth ? 12 : 6}>
             <TextField label="หมายเหตุ" fullWidth value={form.Note ?? ''}
               onChange={set('Note')} />
           </Grid>
+
+          {/* ─── เพิ่มหลายเดือน (เฉพาะตอนเพิ่มใหม่) ─── */}
+          {!expense && (
+            <>
+              <Grid item xs={12}>
+                <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 1.5 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={multiMonth}
+                        onChange={(e) => setMultiMonth(e.target.checked)}
+                        color="primary"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" fontWeight={600}>
+                        เพิ่มหลายเดือนพร้อมกัน
+                      </Typography>
+                    }
+                  />
+                </Box>
+              </Grid>
+
+              {multiMonth && (
+                <>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="จำนวนเดือน"
+                      fullWidth
+                      type="number"
+                      value={monthCount}
+                      onChange={(e) => setMonthCount(e.target.value)}
+                      inputProps={{ min: 2, max: 24, step: 1 }}
+                      helperText="2 – 24 เดือน"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{
+                      bgcolor: 'info.50', border: '1px solid', borderColor: 'info.200',
+                      borderRadius: 1, px: 1.5, py: 1, height: '100%',
+                      display: 'flex', alignItems: 'center',
+                    }}>
+                      <Typography variant="body2" color="text.secondary">
+                        วันครบกำหนด → <strong>วันสิ้นเดือน</strong> ของแต่ละเดือนอัตโนมัติ
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Box sx={{
+                      bgcolor: 'primary.50', border: '1px solid', borderColor: 'primary.200',
+                      borderRadius: 1, px: 2, py: 1,
+                    }}>
+                      <Typography variant="body2" color="primary.main">
+                        จะเพิ่ม <strong>{Math.max(2, Math.min(parseInt(monthCount) || 2, 24))} รายการ</strong>: {previewRange}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                </>
+              )}
+            </>
+          )}
         </Grid>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
         <Button variant="outlined" onClick={onClose} fullWidth disabled={saving}>ยกเลิก</Button>
         <Button variant="contained" onClick={handleSave} fullWidth disabled={saving}>
-          {saving ? <CircularProgress size={22} /> : 'บันทึก'}
+          {saving ? <CircularProgress size={22} /> : (multiMonth && !expense ? `เพิ่ม ${Math.max(2, Math.min(parseInt(monthCount) || 2, 24))} เดือน` : 'บันทึก')}
         </Button>
       </DialogActions>
     </Dialog>
@@ -181,8 +276,10 @@ export default function Expenses() {
   const [expenses, setExpenses] = useState([]);  // รายการรายจ่ายทั้งหมดของเดือนที่เลือก
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState(null);   // null=เพิ่มใหม่, object=แก้ไข
-  const [deleteId, setDeleteId] = useState(null);        // id ที่กำลังจะลบ
+  const [editTarget, setEditTarget] = useState(null);        // null=เพิ่มใหม่, object=แก้ไข
+  const [deleteTarget, setDeleteTarget] = useState(null);    // expense ที่กำลังจะลบ
+  const [relatedExpenses, setRelatedExpenses] = useState([]); // รายการที่ชื่อ+หมวดเดียวกันในเดือนอื่น
+  const [loadingRelated, setLoadingRelated] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
 
   // fetchExpenses — โหลดรายจ่ายของ year/month ที่เลือก
@@ -271,16 +368,49 @@ export default function Expenses() {
     }
   };
 
-  // handleDelete — ลบรายการ
-  const handleDelete = async () => {
+  const closeDeleteDialog = () => { setDeleteTarget(null); setRelatedExpenses([]); };
+
+  // เมื่อกดปุ่มลบ — เปิด dialog แล้วโหลดรายการที่ชื่อ+หมวดเดียวกันในทุกเดือน
+  const handleDeleteClick = async (exp) => {
+    setDeleteTarget(exp);
+    setLoadingRelated(true);
     try {
-      await expenseApi.remove(deleteId);
+      const res = await expenseApi.getAll(); // ดึงทั้งหมดไม่กรองเดือน
+      const related = res.data.filter((e) =>
+        e.Name.trim().toLowerCase() === exp.Name.trim().toLowerCase() &&
+        e.Category === exp.Category
+      ).sort((a, b) => a.Year !== b.Year ? a.Year - b.Year : a.Month - b.Month);
+      setRelatedExpenses(related);
+    } catch {
+      setRelatedExpenses([exp]); // fallback
+    } finally {
+      setLoadingRelated(false);
+    }
+  };
+
+  // ลบเฉพาะรายการเดียวที่เลือก
+  const handleDeleteSingle = async () => {
+    try {
+      await expenseApi.remove(deleteTarget.Id);
       showSnack('ลบรายการเรียบร้อยแล้ว');
       fetchExpenses();
     } catch {
       showSnack('ลบไม่สำเร็จ', 'error');
     } finally {
-      setDeleteId(null);
+      closeDeleteDialog();
+    }
+  };
+
+  // ลบทุกเดือนที่ชื่อ+หมวดเดียวกัน
+  const handleDeleteAll = async () => {
+    try {
+      await Promise.all(relatedExpenses.map((e) => expenseApi.remove(e.Id)));
+      showSnack(`ลบ ${relatedExpenses.length} รายการเรียบร้อยแล้ว`);
+      fetchExpenses();
+    } catch {
+      showSnack('ลบบางรายการไม่สำเร็จ', 'error');
+    } finally {
+      closeDeleteDialog();
     }
   };
 
@@ -409,7 +539,7 @@ export default function Expenses() {
                         </Tooltip>
                         <Tooltip title="ลบ">
                           <IconButton size="small" color="error"
-                            onClick={() => setDeleteId(exp.Id)}>
+                            onClick={() => handleDeleteClick(exp)}>
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -443,12 +573,52 @@ export default function Expenses() {
       />
 
       {/* Dialog ยืนยันการลบ */}
-      <ConfirmDialog
-        open={!!deleteId}
-        message="คุณต้องการลบรายจ่ายนี้ใช่หรือไม่? การดำเนินการนี้ไม่สามารถยกเลิกได้"
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteId(null)}
-      />
+      <Dialog open={!!deleteTarget} onClose={closeDeleteDialog} maxWidth="xs" fullWidth>
+        <DialogTitle>ลบรายจ่าย</DialogTitle>
+        <DialogContent>
+          {loadingRelated ? (
+            <Box display="flex" justifyContent="center" py={3}><CircularProgress size={28} /></Box>
+          ) : relatedExpenses.length > 1 ? (
+            <>
+              <Typography gutterBottom>
+                พบรายการ <strong>"{deleteTarget?.Name}"</strong> จำนวน{' '}
+                <strong>{relatedExpenses.length} เดือน</strong>:
+              </Typography>
+              <Box sx={{ pl: 1, mb: 2 }}>
+                {relatedExpenses.map((e) => (
+                  <Typography key={e.Id} variant="body2"
+                    color={e.Id === deleteTarget?.Id ? 'primary.main' : 'text.secondary'}>
+                    • {thaiFullMonths[e.Month]} {e.Year + 543}
+                    {e.Id === deleteTarget?.Id ? ' ← เดือนนี้' : ''}
+                  </Typography>
+                ))}
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                ต้องการลบเฉพาะเดือนนี้ หรือลบทั้งหมด?
+              </Typography>
+            </>
+          ) : (
+            <Typography>
+              คุณต้องการลบรายจ่ายนี้ใช่หรือไม่?<br />
+              การดำเนินการนี้ไม่สามารถยกเลิกได้
+            </Typography>
+          )}
+        </DialogContent>
+        {!loadingRelated && (
+          <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
+            <Button variant="outlined" onClick={closeDeleteDialog}>ยกเลิก</Button>
+            {relatedExpenses.length > 1 && (
+              <Button variant="outlined" color="error" onClick={handleDeleteSingle}>
+                เฉพาะเดือนนี้
+              </Button>
+            )}
+            <Button variant="contained" color="error"
+              onClick={relatedExpenses.length > 1 ? handleDeleteAll : handleDeleteSingle}>
+              {relatedExpenses.length > 1 ? `ลบทั้งหมด ${relatedExpenses.length} เดือน` : 'ลบ'}
+            </Button>
+          </DialogActions>
+        )}
+      </Dialog>
 
       {/* Snackbar แจ้งเตือนผลการทำงาน */}
       <Snackbar
