@@ -11,7 +11,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress,
-  Dialog, DialogActions, DialogContent, DialogTitle,
+  DialogActions, DialogContent,
   Grid, IconButton, LinearProgress, Snackbar, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, TextField,
   ToggleButton, ToggleButtonGroup, Tooltip, Typography,
@@ -23,6 +23,10 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PendingIcon from '@mui/icons-material/Pending';
 import { installmentApi } from '../api/financeApi';
 import ConfirmDialog from '../components/ConfirmDialog';
+import ResponsiveDialog from '../components/ResponsiveDialog';
+import MobileDataCard from '../components/MobileDataCard';
+import AddFab from '../components/AddFab';
+import useIsMobile from '../hooks/useIsMobile';
 import { formatCurrency } from '../utils/formatters';
 
 // ค่าเริ่มต้นของฟอร์ม dialog
@@ -100,8 +104,12 @@ function InstallmentDialog({ open, installment, onClose, onSaved }) {
   const remaining = (Number(form.TotalInstallments) - Number(form.PaidInstallments || 0)) * parseFloat(form.MonthlyAmount || 0);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{installment ? 'แก้ไขรายการผ่อน' : 'เพิ่มรายการผ่อน'}</DialogTitle>
+    <ResponsiveDialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      title={installment ? 'แก้ไขรายการผ่อน' : 'เพิ่มรายการผ่อน'}
+    >
       <DialogContent sx={{ pt: 2 }}>
         <Grid container spacing={2} sx={{ mt: 0 }}>
           {/* ชื่อรายการ */}
@@ -167,13 +175,14 @@ function InstallmentDialog({ open, installment, onClose, onSaved }) {
           )}
         </Grid>
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+      {/* mt: auto — ดันปุ่มลงล่างสุดเมื่อ dialog เต็มจอบนมือถือ */}
+      <DialogActions sx={{ px: 3, pb: 2, gap: 1, mt: 'auto' }}>
         <Button variant="outlined" onClick={onClose} fullWidth disabled={saving}>ยกเลิก</Button>
         <Button variant="contained" onClick={handleSave} fullWidth disabled={saving}>
           {saving ? <CircularProgress size={22} /> : 'บันทึก'}
         </Button>
       </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }
 
@@ -181,6 +190,7 @@ function InstallmentDialog({ open, installment, onClose, onSaved }) {
 // Installments — Component หลักของหน้าผ่อนชำระ
 // =====================================================
 export default function Installments() {
+  const isMobile = useIsMobile();
   // filter — "active"=กำลังผ่อน, "all"=ทั้งหมด
   const [filter, setFilter] = useState('active');
   const [list, setList] = useState([]);
@@ -261,43 +271,47 @@ export default function Installments() {
             <ToggleButton value="active">กำลังผ่อน</ToggleButton>
             <ToggleButton value="all">ทั้งหมด</ToggleButton>
           </ToggleButtonGroup>
-          <Button variant="contained" startIcon={<AddIcon />}
-            onClick={() => { setEditTarget(null); setDialogOpen(true); }}>
-            เพิ่มรายการผ่อน
-          </Button>
+          {/* บนมือถือใช้ปุ่มลอย (AddFab) ด้านล่างแทน */}
+          {!isMobile && (
+            <Button variant="contained" startIcon={<AddIcon />}
+              onClick={() => { setEditTarget(null); setDialogOpen(true); }}>
+              เพิ่มรายการผ่อน
+            </Button>
+          )}
         </Box>
       </Box>
 
       {/* Summary cards — แสดงเมื่อมีรายการที่กำลังผ่อนอยู่ */}
       {!loading && activeList.length > 0 && (
-        <Grid container spacing={2} sx={{ mb: 2 }}>
-          {/* ยอดรวมต่อเดือน */}
-          <Grid item xs={12} sm={4}>
-            <Card sx={{ bgcolor: 'primary.main', color: 'white' }}>
-              <CardContent sx={{ py: 2 }}>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>ยอดผ่อนรวมต่อเดือน</Typography>
-                <Typography variant="h5" fontWeight={700}>฿{formatCurrency(totalMonthly)}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          {/* ยอดคงเหลือทั้งหมด */}
-          <Grid item xs={12} sm={4}>
-            <Card sx={{ bgcolor: 'error.main', color: 'white' }}>
-              <CardContent sx={{ py: 2 }}>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>ยอดผ่อนที่เหลือทั้งหมด</Typography>
-                <Typography variant="h5" fontWeight={700}>฿{formatCurrency(totalRemaining)}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          {/* จำนวนรายการ */}
-          <Grid item xs={12} sm={4}>
-            <Card sx={{ bgcolor: 'success.main', color: 'white' }}>
-              <CardContent sx={{ py: 2 }}>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>รายการที่กำลังผ่อน</Typography>
-                <Typography variant="h5" fontWeight={700}>{activeList.length} รายการ</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+        // บนมือถือ การ์ดสรุป 3 ใบเต็มความกว้างจะดันรายการผ่อนตกไปไกล
+        // จึงย่อ padding/ขนาดตัวเลข และวางเป็นแถวเดียว (label อยู่ในบรรทัดเดียวกับค่า)
+        <Grid container spacing={{ xs: 1, sm: 2 }} sx={{ mb: 2 }}>
+          {[
+            { label: 'ยอดผ่อนรวมต่อเดือน', value: `฿${formatCurrency(totalMonthly)}`, bg: 'primary.main' },
+            { label: 'ยอดผ่อนที่เหลือทั้งหมด', value: `฿${formatCurrency(totalRemaining)}`, bg: 'error.main' },
+            { label: 'รายการที่กำลังผ่อน', value: `${activeList.length} รายการ`, bg: 'success.main' },
+          ].map((s) => (
+            <Grid item xs={12} sm={4} key={s.label}>
+              <Card sx={{ bgcolor: s.bg, color: 'white' }}>
+                <CardContent
+                  sx={{
+                    py: { xs: 1.25, sm: 2 },
+                    '&:last-child': { pb: { xs: 1.25, sm: 2 } },
+                    // มือถือ: label ซ้าย / ค่าขวา ในบรรทัดเดียว
+                    display: { xs: 'flex', sm: 'block' },
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 1,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ opacity: 0.8 }}>{s.label}</Typography>
+                  <Typography fontWeight={700} sx={{ fontSize: { xs: '1.1rem', sm: '1.5rem' }, whiteSpace: 'nowrap' }}>
+                    {s.value}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
         </Grid>
       )}
 
@@ -314,6 +328,78 @@ export default function Installments() {
                 onClick={() => { setEditTarget(null); setDialogOpen(true); }}>
                 เพิ่มรายการผ่อนแรก
               </Button>
+            </Box>
+          ) : isMobile ? (
+            // ─── มุมมองมือถือ: การ์ดหนึ่งใบต่อหนึ่งรายการผ่อน ───
+            <Box sx={{ p: 1.5 }}>
+              {list.map((inst) => {
+                const pct = inst.TotalInstallments > 0
+                  ? (inst.PaidInstallments / inst.TotalInstallments) * 100 : 0;
+                const dueThisMonth = isThisMonth(inst);
+
+                return (
+                  <MobileDataCard
+                    key={inst.Id}
+                    sx={{
+                      opacity: inst.IsCompleted ? 0.55 : 1,
+                      bgcolor: dueThisMonth ? 'rgba(255, 167, 38, 0.08)' : 'inherit',
+                    }}
+                    title={inst.Name}
+                    titleChips={
+                      <>
+                        {inst.IsCompleted
+                          ? <Chip icon={<CheckCircleIcon />} label="ชำระครบ" color="success" size="small" />
+                          : <Chip icon={<PendingIcon />} label="กำลังผ่อน" color="primary" size="small" variant="outlined" />}
+                        {dueThisMonth && (
+                          <Chip label="ครบกำหนดเดือนนี้" color="warning" size="small" />
+                        )}
+                      </>
+                    }
+                    amount={`฿${formatCurrency(inst.MonthlyAmount)}`}
+                    amountColor="text.primary"
+                    rows={[
+                      {
+                        label: 'งวด',
+                        value: `${inst.PaidInstallments}/${inst.TotalInstallments} (เหลือ ${inst.RemainingInstallments} งวด)`,
+                      },
+                      {
+                        label: 'ชำระแล้ว',
+                        value: `฿${formatCurrency(inst.PaidAmount)}`,
+                        color: 'success.main',
+                      },
+                      {
+                        label: 'คงเหลือ',
+                        value: `฿${formatCurrency(inst.RemainingAmount)}`,
+                        color: inst.IsCompleted ? 'text.disabled' : 'error.main',
+                      },
+                    ]}
+                    footer={
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={pct}
+                          sx={{ flexGrow: 1, height: 8, borderRadius: 4 }}
+                          color={inst.IsCompleted || pct > 75 ? 'success' : 'primary'}
+                        />
+                        <Typography variant="caption" sx={{ minWidth: 34 }}>
+                          {pct.toFixed(0)}%
+                        </Typography>
+                      </Box>
+                    }
+                    actions={
+                      <>
+                        <IconButton color="primary"
+                          onClick={() => { setEditTarget(inst); setDialogOpen(true); }}>
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton color="error" onClick={() => setDeleteId(inst.Id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      </>
+                    }
+                  />
+                );
+              })}
             </Box>
           ) : (
             <TableContainer>
@@ -421,6 +507,12 @@ export default function Installments() {
           )}
         </CardContent>
       </Card>
+
+      {/* ปุ่มลอยเพิ่มรายการผ่อน — เฉพาะมือถือ */}
+      {isMobile && (
+        <AddFab label="เพิ่มรายการผ่อน"
+          onClick={() => { setEditTarget(null); setDialogOpen(true); }} />
+      )}
 
       {/* Dialog เพิ่ม/แก้ไข */}
       <InstallmentDialog

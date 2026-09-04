@@ -3,13 +3,15 @@
   "configurations": [
     {
       "name": "finance-frontend",
-      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
-      "runtimeArgs": [
-        "C:\\Project_BEER\\Monthly_Receipt\\frontend\\node_modules\\vite\\bin\\vite.js",
-        "C:\\Project_BEER\\Monthly_Receipt\\frontend",
-        "--port", "3000"
-      ],
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "frontend", "run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "finance-api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "backend/FinanceApi"],
+      "port": 5000
     }
   ]
 }

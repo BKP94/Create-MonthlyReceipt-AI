@@ -23,6 +23,8 @@ import TuneIcon from '@mui/icons-material/Tune';
 import SavingsIcon from '@mui/icons-material/Savings';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import SettingsEthernetIcon from '@mui/icons-material/SettingsEthernet';
+import ApiSettingsDialog from './ApiSettingsDialog';
 
 // ความกว้างของ Sidebar (px)
 const DRAWER_WIDTH = 248;
@@ -42,6 +44,8 @@ const navItems = [
 export default function Layout({ children }) {
   // mobileOpen — state ควบคุมการเปิด/ปิด Drawer บน mobile
   const [mobileOpen, setMobileOpen] = useState(false);
+  // apiSettingsOpen — dialog ตั้งค่า URL ของ backend
+  const [apiSettingsOpen, setApiSettingsOpen] = useState(false);
 
   const navigate = useNavigate();    // ใช้เปลี่ยนหน้า
   const location = useLocation();    // ใช้รู้ว่าอยู่หน้าไหน (เพื่อ highlight เมนู active)
@@ -116,6 +120,8 @@ export default function Layout({ children }) {
           zIndex: (t) => t.zIndex.drawer + 1,
           bgcolor: 'primary.main',
           borderBottom: '1px solid rgba(255,255,255,0.12)',
+          // เว้นพื้นที่ notch เมื่อรันเป็น PWA เต็มจอบน iPhone
+          pt: 'env(safe-area-inset-top, 0px)',
         }}
       >
         <Toolbar>
@@ -125,9 +131,20 @@ export default function Layout({ children }) {
               <MenuIcon />
             </IconButton>
           )}
-          <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
-            โปรแกรมบริหารการเงินส่วนตัว
+          {/* บนมือถือใช้ชื่อสั้นลง ไม่ให้ล้นแถบ */}
+          <Typography variant="h6" noWrap sx={{ fontWeight: 700, fontSize: { xs: 17, sm: 20 }, flexGrow: 1 }}>
+            {isMobile ? 'บริหารการเงิน' : 'โปรแกรมบริหารการเงินส่วนตัว'}
           </Typography>
+
+          {/* ตั้งค่าที่อยู่ backend — จำเป็นเมื่อ URL ของ tunnel เปลี่ยน */}
+          <IconButton
+            color="inherit"
+            edge="end"
+            onClick={() => setApiSettingsOpen(true)}
+            aria-label="ตั้งค่าการเชื่อมต่อ"
+          >
+            <SettingsEthernetIcon />
+          </IconButton>
         </Toolbar>
       </AppBar>
 
@@ -163,17 +180,24 @@ export default function Layout({ children }) {
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 2, md: 3 },
+          p: { xs: 1.5, md: 3 },
+          // เว้นที่ท้ายหน้าบนมือถือ ไม่ให้ปุ่มลอย (AddFab) ทับรายการสุดท้าย
+          pb: { xs: 'calc(88px + env(safe-area-inset-bottom, 0px))', md: 3 },
           // หักความกว้าง Sidebar ออก เพื่อไม่ให้เนื้อหาทับกัน
           width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
-          minHeight: '100vh',
+          // ใช้ 100dvh แทน 100vh — บนมือถือ vh ไม่หักแถบ URL ของเบราว์เซอร์
+          minHeight: '100dvh',
           bgcolor: 'background.default',
+          // กันเนื้อหาที่กว้างเกิน (เช่น ตาราง) ดันหน้าจอให้เลื่อนแนวนอนได้ทั้งหน้า
+          overflowX: 'hidden',
         }}
       >
         {/* Toolbar placeholder — ดันเนื้อหาลงมาให้ไม่ถูก AppBar บัง */}
-        <Toolbar />
+        <Toolbar sx={{ mt: 'env(safe-area-inset-top, 0px)' }} />
         {children}
       </Box>
+
+      <ApiSettingsDialog open={apiSettingsOpen} onClose={() => setApiSettingsOpen(false)} />
     </Box>
   );
 }

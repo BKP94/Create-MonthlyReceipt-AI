@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getApiRoot } from '../config/apiConfig';
 
 // ========================================================
 // financeApi.js — ตัวกลางเรียก Backend API ทั้งหมด
@@ -6,12 +7,18 @@ import axios from 'axios';
 // และจัดการ error / header ได้สะดวกกว่า
 // ========================================================
 
-// สร้าง axios instance ที่มี config กลางร่วมกัน
-// baseURL: '/api' → ทุก request จะนำหน้าด้วย /api อัตโนมัติ
-// proxy ใน vite.config.js แปลง /api → http://localhost:5000/api
 const api = axios.create({
-  baseURL: '/api',
   headers: { 'Content-Type': 'application/json; charset=utf-8' },
+});
+
+// baseURL ถูกกำหนดใหม่ทุก request แทนที่จะ fix ตอนสร้าง instance
+// เพราะผู้ใช้เปลี่ยน URL ของ backend ได้จากหน้าตั้งค่า (เก็บใน localStorage)
+// — จำเป็นเมื่อใช้ Cloudflare Tunnel แบบ quick tunnel ที่ URL เปลี่ยนทุกครั้งที่รีสตาร์ท
+// รายละเอียดลำดับความสำคัญของค่า ดูใน src/config/apiConfig.js
+// หมายเหตุ: ถ้า backend อยู่คนละโดเมน ต้องเปิด CORS ให้โดเมนของ frontend ด้วย
+api.interceptors.request.use((config) => {
+  config.baseURL = getApiRoot();
+  return config;
 });
 
 // =====================================================

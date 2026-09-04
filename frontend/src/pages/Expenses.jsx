@@ -11,9 +11,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress,
-  Dialog, DialogActions, DialogContent, DialogTitle,
+  DialogActions, DialogContent,
   FormControl, FormControlLabel, Grid, IconButton, InputLabel, MenuItem,
-  Paper, Select, Snackbar, Switch, Table, TableBody, TableCell,
+  Select, Snackbar, Switch, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, TextField, Tooltip, Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
@@ -21,6 +21,10 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { expenseApi, installmentApi } from '../api/financeApi';
 import MonthSelector from '../components/MonthSelector';
+import ResponsiveDialog from '../components/ResponsiveDialog';
+import MobileDataCard from '../components/MobileDataCard';
+import AddFab from '../components/AddFab';
+import useIsMobile from '../hooks/useIsMobile';
 import {
   formatCurrency, thaiFullMonths, categoryConfig, YEARS,
 } from '../utils/formatters';
@@ -133,8 +137,12 @@ function ExpenseDialog({ open, expense, defaultYear, defaultMonth, onClose, onSa
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{expense ? 'แก้ไขรายจ่าย' : 'เพิ่มรายจ่าย'}</DialogTitle>
+    <ResponsiveDialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      title={expense ? 'แก้ไขรายจ่าย' : 'เพิ่มรายจ่าย'}
+    >
       <DialogContent sx={{ pt: 2 }}>
         <Grid container spacing={2} sx={{ mt: 0 }}>
           {/* ชื่อรายการ */}
@@ -256,13 +264,14 @@ function ExpenseDialog({ open, expense, defaultYear, defaultMonth, onClose, onSa
           )}
         </Grid>
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+      {/* mt: auto — ดันปุ่มลงล่างสุดเมื่อ dialog เต็มจอบนมือถือ */}
+      <DialogActions sx={{ px: 3, pb: 2, gap: 1, mt: 'auto' }}>
         <Button variant="outlined" onClick={onClose} fullWidth disabled={saving}>ยกเลิก</Button>
         <Button variant="contained" onClick={handleSave} fullWidth disabled={saving}>
           {saving ? <CircularProgress size={22} /> : (multiMonth && !expense ? `เพิ่ม ${Math.max(2, Math.min(parseInt(monthCount) || 2, 24))} เดือน` : 'บันทึก')}
         </Button>
       </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }
 
@@ -270,6 +279,7 @@ function ExpenseDialog({ open, expense, defaultYear, defaultMonth, onClose, onSa
 // Expenses — Component หลักของหน้ารายจ่ายรายเดือน
 // =====================================================
 export default function Expenses() {
+  const isMobile = useIsMobile();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -429,12 +439,16 @@ export default function Expenses() {
       {/* Header — ชื่อหน้า + MonthSelector + ปุ่มเพิ่ม */}
       <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} mb={3}>
         <Typography variant="h5">รายจ่ายรายเดือน</Typography>
-        <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+        <Box display="flex" alignItems="center" gap={2} flexWrap="wrap"
+          sx={{ width: { xs: '100%', md: 'auto' } }}>
           <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
-          <Button variant="contained" startIcon={<AddIcon />}
-            onClick={() => { setEditTarget(null); setDialogOpen(true); }}>
-            เพิ่มรายจ่าย
-          </Button>
+          {/* บนมือถือใช้ปุ่มลอย (AddFab) ด้านล่างแทน เพราะกดถึงง่ายกว่า */}
+          {!isMobile && (
+            <Button variant="contained" startIcon={<AddIcon />}
+              onClick={() => { setEditTarget(null); setDialogOpen(true); }}>
+              เพิ่มรายจ่าย
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -466,6 +480,66 @@ export default function Expenses() {
                 onClick={() => { setEditTarget(null); setDialogOpen(true); }}>
                 เพิ่มรายจ่ายแรก
               </Button>
+            </Box>
+          ) : isMobile ? (
+            // ─── มุมมองมือถือ: การ์ดหนึ่งใบต่อหนึ่งรายจ่าย ───
+            <Box sx={{ p: 1.5 }}>
+              {expenses.map((exp) => (
+                <MobileDataCard
+                  key={exp.Id}
+                  // พื้นเขียวอ่อนเมื่อชำระแล้ว (เหมือนแถวตารางบน desktop)
+                  sx={{ bgcolor: exp.IsPaid ? '#E8F5E9' : 'inherit' }}
+                  leading={
+                    <Checkbox
+                      checked={!!exp.IsPaid}
+                      onChange={() => handleTogglePaid(exp)}
+                      color="success"
+                    />
+                  }
+                  title={exp.Name}
+                  titleChips={
+                    <Chip
+                      label={categoryConfig[exp.Category]?.label ?? exp.Category}
+                      color={categoryConfig[exp.Category]?.color}
+                      size="small"
+                    />
+                  }
+                  amount={`฿${formatCurrency(exp.Amount)}`}
+                  amountColor={exp.IsPaid ? 'success.main' : 'error.main'}
+                  rows={[
+                    {
+                      label: 'วันครบกำหนด',
+                      value: exp.DueDate
+                        ? new Date(exp.DueDate).toLocaleDateString('en-CA').replace(/(\d{4})-(\d{2})-(\d{2})/, '$1-$3-$2')
+                        : '-',
+                    },
+                    // แสดงแถวหมายเหตุเฉพาะเมื่อมีข้อความจริง เพื่อไม่ให้การ์ดยาวเกินจำเป็น
+                    ...(exp.Note ? [{ label: 'หมายเหตุ', value: exp.Note }] : []),
+                  ]}
+                  actions={
+                    <>
+                      <IconButton color="primary"
+                        onClick={() => { setEditTarget(exp); setDialogOpen(true); }}>
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton color="error" onClick={() => handleDeleteClick(exp)}>
+                        <DeleteIcon />
+                      </IconButton>
+                    </>
+                  }
+                />
+              ))}
+
+              {/* แถบรวมยอด — แทนแถว "รวมทั้งหมด" ของตาราง */}
+              <Box
+                display="flex" justifyContent="space-between" alignItems="center"
+                sx={{ mt: 1, px: 1.75, py: 1.25, bgcolor: '#FAFAFA', borderRadius: 2 }}
+              >
+                <Typography variant="body2" fontWeight={700}>รวมทั้งหมด</Typography>
+                <Typography variant="subtitle1" fontWeight={700} color="error.main">
+                  ฿{formatCurrency(total)}
+                </Typography>
+              </Box>
             </Box>
           ) : (
             <TableContainer>
@@ -562,6 +636,12 @@ export default function Expenses() {
         </CardContent>
       </Card>
 
+      {/* ปุ่มลอยเพิ่มรายจ่าย — เฉพาะมือถือ */}
+      {isMobile && (
+        <AddFab label="เพิ่มรายจ่าย"
+          onClick={() => { setEditTarget(null); setDialogOpen(true); }} />
+      )}
+
       {/* Dialog เพิ่ม/แก้ไข */}
       <ExpenseDialog
         open={dialogOpen}
@@ -573,8 +653,7 @@ export default function Expenses() {
       />
 
       {/* Dialog ยืนยันการลบ */}
-      <Dialog open={!!deleteTarget} onClose={closeDeleteDialog} maxWidth="xs" fullWidth>
-        <DialogTitle>ลบรายจ่าย</DialogTitle>
+      <ResponsiveDialog open={!!deleteTarget} onClose={closeDeleteDialog} maxWidth="xs" title="ลบรายจ่าย">
         <DialogContent>
           {loadingRelated ? (
             <Box display="flex" justifyContent="center" py={3}><CircularProgress size={28} /></Box>
@@ -605,7 +684,7 @@ export default function Expenses() {
           )}
         </DialogContent>
         {!loadingRelated && (
-          <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
+          <DialogActions sx={{ px: 2, pb: 2, gap: 1, mt: 'auto', flexWrap: 'wrap' }}>
             <Button variant="outlined" onClick={closeDeleteDialog}>ยกเลิก</Button>
             {relatedExpenses.length > 1 && (
               <Button variant="outlined" color="error" onClick={handleDeleteSingle}>
@@ -618,7 +697,7 @@ export default function Expenses() {
             </Button>
           </DialogActions>
         )}
-      </Dialog>
+      </ResponsiveDialog>
 
       {/* Snackbar แจ้งเตือนผลการทำงาน */}
       <Snackbar

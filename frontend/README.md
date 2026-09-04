@@ -33,6 +33,45 @@ Frontend จะรันที่ **http://localhost:3000**
 
 ---
 
+## มือถือ & PWA
+
+หน้าจอปรับตามขนาดอัตโนมัติที่ breakpoint `md` (900px):
+
+- **จอเล็ก** — ตารางเปลี่ยนเป็นการ์ด (`MobileDataCard`), ปุ่มเพิ่มเป็นปุ่มลอยมุมขวาล่าง (`AddFab`),
+  dialog เปิดเต็มจอ (`ResponsiveDialog`), เมนูซ่อนหลังปุ่ม hamburger
+- **จอใหญ่** — ตารางและ sidebar เหมือนเดิมทุกอย่าง
+
+แอปเป็น PWA (ผ่าน `vite-plugin-pwa`) — ติดตั้งลงหน้าจอโฮมมือถือได้ และเปิดดูข้อมูล
+ที่โหลดไว้แล้วได้แม้ออฟไลน์ (service worker cache API แบบ NetworkFirst)
+
+ไอคอนสร้างจากโค้ด ไม่ต้องใช้โปรแกรมแต่งรูป:
+
+```bash
+node scripts/generate-icons.mjs
+```
+
+> service worker ถูกปิดไว้ตอน `pnpm dev` (`devOptions.enabled: false`) เพื่อไม่ให้กวน HMR
+> ถ้าจะทดสอบ PWA จริงต้อง `pnpm build && pnpm preview`
+
+---
+
+## ตัวแปรสภาพแวดล้อม
+
+ดู `.env.example` — ปกติตอนพัฒนาไม่ต้องตั้งอะไร
+
+| ตัวแปร | ใช้ทำอะไร |
+|---|---|
+| `VITE_BASE_PATH` | path ที่แอปถูกเสิร์ฟ (GitHub Pages ต้องเป็น `/<repo>/`) |
+| `VITE_API_URL` | origin ของ backend เมื่ออยู่คนละโดเมนกับ frontend |
+
+---
+
+## Deploy
+
+ดู [DEPLOY.md](../DEPLOY.md) — frontend ไป GitHub Pages, backend ไป Azure App Service
+
+---
+
 ## หน้าที่มีในระบบ
 
 | หน้า | URL | คำอธิบาย |

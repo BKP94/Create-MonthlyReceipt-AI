@@ -27,6 +27,8 @@ import {
 } from 'recharts';
 import { dashboardApi } from '../api/financeApi';
 import MonthSelector from '../components/MonthSelector';
+import MobileDataCard from '../components/MobileDataCard';
+import useIsMobile from '../hooks/useIsMobile';
 import { formatCurrency, formatCurrencyShort, thaiShortMonths } from '../utils/formatters';
 
 // =====================================================
@@ -123,6 +125,7 @@ const CHART_COLORS = ['#90CAF9', '#64B5F6', '#42A5F5', '#2196F3', '#1E88E5', '#1
 // Dashboard — Component หลักของหน้าแดชบอร์ด
 // =====================================================
 export default function Dashboard() {
+  const isMobile = useIsMobile();
   const now = new Date();
   // state ปี/เดือนที่กำลังดูอยู่ — เริ่มต้นที่เดือนปัจจุบัน
   const [year, setYear] = useState(now.getFullYear());
@@ -369,6 +372,44 @@ export default function Dashboard() {
                   <Typography variant="subtitle1" fontWeight={600} mb={2}>
                     รายการผ่อนที่ยังค้างอยู่
                   </Typography>
+                  {isMobile ? (
+                    // ─── มุมมองมือถือ: การ์ดแทนตาราง ───
+                    <Box>
+                      {data.ActiveInstallments.map((inst) => {
+                        const pct = inst.TotalInstallments > 0
+                          ? (inst.PaidInstallments / inst.TotalInstallments) * 100 : 0;
+                        return (
+                          <MobileDataCard
+                            key={inst.Id}
+                            title={inst.Name}
+                            amount={`฿${formatCurrency(inst.MonthlyAmount)}`}
+                            rows={[
+                              {
+                                label: 'งวด (ชำระ/รวม)',
+                                value: `${inst.PaidInstallments}/${inst.TotalInstallments}`,
+                              },
+                              {
+                                label: 'คงเหลือ',
+                                value: `฿${formatCurrency(inst.RemainingAmount)}`,
+                                color: 'error.main',
+                              },
+                            ]}
+                            footer={
+                              <Box display="flex" alignItems="center" gap={1}>
+                                <LinearProgress
+                                  variant="determinate"
+                                  value={pct}
+                                  sx={{ flexGrow: 1, height: 6, borderRadius: 3 }}
+                                  color="primary"
+                                />
+                                <Typography variant="caption">{pct.toFixed(0)}%</Typography>
+                              </Box>
+                            }
+                          />
+                        );
+                      })}
+                    </Box>
+                  ) : (
                   <TableContainer>
                     <Table size="small">
                       <TableHead>
@@ -410,6 +451,7 @@ export default function Dashboard() {
                       </TableBody>
                     </Table>
                   </TableContainer>
+                  )}
                 </CardContent>
               </Card>
             </Grid>

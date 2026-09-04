@@ -10,7 +10,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress,
-  Dialog, DialogActions, DialogContent, DialogTitle,
+  DialogActions, DialogContent,
   Grid, IconButton, Snackbar, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, TextField, Tooltip, Typography,
 } from '@mui/material';
@@ -27,6 +27,10 @@ import {
 } from 'recharts';
 import { salaryHistoryApi } from '../api/financeApi';
 import ConfirmDialog from '../components/ConfirmDialog';
+import ResponsiveDialog from '../components/ResponsiveDialog';
+import MobileDataCard from '../components/MobileDataCard';
+import AddFab from '../components/AddFab';
+import useIsMobile from '../hooks/useIsMobile';
 import { formatCurrency, formatCurrencyShort } from '../utils/formatters';
 
 // =====================================================
@@ -148,8 +152,12 @@ function SalaryDialog({ open, record, onClose, onSaved }) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>{record ? 'แก้ไขข้อมูลเงินเดือน' : 'เพิ่มข้อมูลเงินเดือน'}</DialogTitle>
+    <ResponsiveDialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      title={record ? 'แก้ไขข้อมูลเงินเดือน' : 'เพิ่มข้อมูลเงินเดือน'}
+    >
       <DialogContent sx={{ pt: 2 }}>
         <Box display="flex" flexDirection="column" gap={2} mt={0.5}>
           {/* ปี ค.ศ. */}
@@ -186,13 +194,14 @@ function SalaryDialog({ open, record, onClose, onSaved }) {
           {errors._server && <Alert severity="error">{errors._server}</Alert>}
         </Box>
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+      {/* mt: auto — ดันปุ่มลงล่างสุดเมื่อ dialog เต็มจอบนมือถือ */}
+      <DialogActions sx={{ px: 3, pb: 2, gap: 1, mt: 'auto' }}>
         <Button variant="outlined" onClick={onClose} fullWidth disabled={saving}>ยกเลิก</Button>
         <Button variant="contained" onClick={handleSave} fullWidth disabled={saving}>
           {saving ? <CircularProgress size={22} /> : 'บันทึก'}
         </Button>
       </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }
 
@@ -200,6 +209,7 @@ function SalaryDialog({ open, record, onClose, onSaved }) {
 // SalaryHistory — Component หลักของหน้าประวัติเงินเดือน
 // =====================================================
 export default function SalaryHistory() {
+  const isMobile = useIsMobile();
   const [list, setList] = useState([]);        // เรียงจากเก่าไปใหม่
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -289,13 +299,16 @@ export default function SalaryHistory() {
             บันทึกการปรับเงินเดือนรายปี — ปีล่าสุดจะ sync ไปที่ตั้งค่างบประมาณอัตโนมัติ
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => { setEditTarget(null); setDialogOpen(true); }}
-        >
-          เพิ่มข้อมูลเงินเดือน
-        </Button>
+        {/* บนมือถือใช้ปุ่มลอย (AddFab) ด้านล่างแทน */}
+        {!isMobile && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => { setEditTarget(null); setDialogOpen(true); }}
+          >
+            เพิ่มข้อมูลเงินเดือน
+          </Button>
+        )}
       </Box>
 
       {loading ? (
@@ -389,6 +402,69 @@ export default function SalaryHistory() {
                   >
                     เพิ่มข้อมูลปีแรก
                   </Button>
+                </Box>
+              ) : isMobile ? (
+                // ─── มุมมองมือถือ: การ์ดหนึ่งใบต่อหนึ่งปี ───
+                <Box sx={{ p: 1.5 }}>
+                  {[...enriched].reverse().map((row) => {
+                    const isLatest = row.Id === latest?.Id;
+                    return (
+                      <MobileDataCard
+                        key={row.Id}
+                        sx={{ bgcolor: isLatest ? 'rgba(33,150,243,0.05)' : 'inherit' }}
+                        title={`ปี ${row.Year + 543}`}
+                        titleChips={
+                          <>
+                            {isLatest && <Chip label="ปัจจุบัน" color="primary" size="small" />}
+                            {row.changePercent != null && (
+                              <Chip
+                                size="small"
+                                icon={
+                                  row.changePercent > 0
+                                    ? <TrendingUpIcon fontSize="small" />
+                                    : row.changePercent < 0
+                                      ? <TrendingDownIcon fontSize="small" />
+                                      : <TrendingFlatIcon fontSize="small" />
+                                }
+                                label={`${row.changePercent > 0 ? '+' : ''}${row.changePercent}%`}
+                                color={
+                                  row.changePercent > 5 ? 'success'
+                                  : row.changePercent > 0 ? 'primary'
+                                  : row.changePercent < 0 ? 'error'
+                                  : 'default'
+                                }
+                                variant={row.changePercent === 0 ? 'outlined' : 'filled'}
+                              />
+                            )}
+                          </>
+                        }
+                        amount={`฿${formatCurrency(row.Salary)}`}
+                        rows={[
+                          {
+                            label: 'เพิ่มขึ้น (บาท)',
+                            value: row.changeAmount != null
+                              ? `${row.changeAmount > 0 ? '+' : ''}฿${formatCurrency(row.changeAmount)}`
+                              : '—',
+                            color: row.changeAmount > 0 ? 'success.main'
+                              : row.changeAmount < 0 ? 'error.main' : 'text.secondary',
+                          },
+                          // แสดงหมายเหตุเฉพาะเมื่อมีข้อความจริง
+                          ...(row.Note ? [{ label: 'หมายเหตุ', value: row.Note }] : []),
+                        ]}
+                        actions={
+                          <>
+                            <IconButton color="primary"
+                              onClick={() => { setEditTarget(row); setDialogOpen(true); }}>
+                              <EditIcon />
+                            </IconButton>
+                            <IconButton color="error" onClick={() => setDeleteId(row.Id)}>
+                              <DeleteIcon />
+                            </IconButton>
+                          </>
+                        }
+                      />
+                    );
+                  })}
                 </Box>
               ) : (
                 <TableContainer>
@@ -519,6 +595,12 @@ export default function SalaryHistory() {
             </Box>
           )}
         </>
+      )}
+
+      {/* ปุ่มลอยเพิ่มข้อมูลเงินเดือน — เฉพาะมือถือ */}
+      {isMobile && (
+        <AddFab label="เพิ่มข้อมูลเงินเดือน"
+          onClick={() => { setEditTarget(null); setDialogOpen(true); }} />
       )}
 
       {/* Dialog เพิ่ม/แก้ไข */}

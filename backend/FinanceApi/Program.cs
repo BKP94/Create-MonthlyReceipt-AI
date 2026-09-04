@@ -8,7 +8,19 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// รันเป็น Windows Service ได้ — เริ่มเองตอนเปิดเครื่องโดยไม่ต้องล็อกอิน
+// และไม่มีหน้าต่าง console ค้างอยู่
+// เมื่อรันปกติด้วย `dotnet run` บรรทัดนี้ไม่มีผลอะไร (ตรวจเองว่าอยู่ในโหมดไหน)
+// ContentRootPath ถูกตั้งเป็นโฟลเดอร์ของ .exe ให้อัตโนมัติ
+// จึงอ่าน appsettings.json เจอแม้ working directory ของ service จะเป็น System32
+builder.Services.AddWindowsService(options =>
+{
+    options.ServiceName = "FinanceApi";
+});
+
 // กำหนดให้ Backend รันที่ port 5000 เสมอ
+// ผูกกับ localhost เท่านั้น — เครื่องอื่นใน LAN เข้าตรงๆ ไม่ได้
+// การเข้าจากมือถือทำผ่าน tunnel ที่รันบนเครื่องเดียวกัน (ดู CONNECT.md)
 builder.WebHost.UseUrls("http://localhost:5000");
 
 // ลงทะเบียน Controllers และปรับ JSON serializer
@@ -23,12 +35,22 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 
-// ตั้งค่า CORS — อนุญาต Frontend (port 3000) เรียก Backend (port 5000)
+// ตั้งค่า CORS — อนุญาต Frontend เรียก Backend
+// localhost:3000 = โหมดพัฒนา
+// origin เพิ่มเติมตั้งผ่าน config "AllowedOrigins" (คั่นด้วย ,)
+//   เช่น environment variable: AllowedOrigins=https://bkp94.github.io
+// จำเป็นเมื่อ deploy frontend ขึ้น GitHub Pages ซึ่งอยู่คนละโดเมนกับ backend
+var allowedOrigins = (builder.Configuration["AllowedOrigins"] ?? "")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    .Append("http://localhost:3000")
+    .Distinct()
+    .ToArray();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod();
     });

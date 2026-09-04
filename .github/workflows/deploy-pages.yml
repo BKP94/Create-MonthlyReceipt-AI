@@ -1,0 +1,82 @@
+# ========================================================
+# Deploy frontend ไป GitHub Pages
+#
+# ต้องตั้งค่าใน repo ก่อนใช้งาน:
+#   1) Settings → Pages → Source = "GitHub Actions"
+#   2) Settings → Secrets and variables → Actions → Variables → New variable
+#        ชื่อ  : VITE_API_URL
+#        ค่า   : URL ของ backend เช่น https://xxx.azurewebsites.net
+#      (ถ้ายังไม่มี backend บนเน็ต ปล่อยว่างได้ — หน้าเว็บจะขึ้นแต่โหลดข้อมูลไม่ได้)
+#
+# หมายเหตุ: GitHub Pages เสิร์ฟไฟล์ static เท่านั้น — backend (ASP.NET Core)
+# ต้อง deploy แยกที่อื่น และเปิด CORS ให้โดเมน Pages นี้
+# ========================================================
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    # build เฉพาะเมื่อมีการแก้ frontend หรือแก้ workflow นี้เอง
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-pages.yml'
+  # เผื่อกดรันเองจากหน้า Actions
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# ถ้า push ติดกันหลายครั้ง ให้ยกเลิกรอบเก่าแล้วใช้รอบล่าสุด
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: ติดตั้ง dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: สร้างไอคอน PWA
+        run: node scripts/generate-icons.mjs
+
+      - name: Build
+        env:
+          # base path ของ GitHub Pages = ชื่อ repo
+          # github.event.repository.name ทำให้ไม่ต้องแก้ถ้าเปลี่ยนชื่อ repo
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: pnpm build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

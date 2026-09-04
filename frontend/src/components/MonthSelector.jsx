@@ -1,9 +1,20 @@
+// ========================================================
+// MonthSelector.jsx — ตัวเลือกเดือน/ปี พร้อมปุ่มเลื่อนถอยหน้า
+//
+// บนมือถือ: กินความกว้างเต็มแถว, ปุ่มลูกศรขนาดปกติ (touch target 48px)
+//           และซ่อนข้อความ "มกราคม 2569" ท้ายแถว เพราะซ้ำกับ dropdown
+// บน desktop: เรียงในบรรทัดเดียวเหมือนเดิม
+// ========================================================
+
 import { Box, FormControl, InputLabel, MenuItem, Select, IconButton, Typography } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { thaiFullMonths, YEARS } from '../utils/formatters';
+import useIsMobile from '../hooks/useIsMobile';
 
 export default function MonthSelector({ year, month, onChange }) {
+  const isMobile = useIsMobile();
+
   const prev = () => {
     if (month === 1) onChange(year - 1, 12);
     else onChange(year, month - 1);
@@ -14,10 +25,19 @@ export default function MonthSelector({ year, month, onChange }) {
   };
 
   return (
-    <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-      <IconButton onClick={prev} size="small"><ChevronLeftIcon /></IconButton>
+    <Box
+      display="flex"
+      alignItems="center"
+      gap={1}
+      flexWrap="wrap"
+      sx={{ width: { xs: '100%', md: 'auto' } }}
+    >
+      <IconButton onClick={prev} size={isMobile ? 'medium' : 'small'} aria-label="เดือนก่อนหน้า">
+        <ChevronLeftIcon />
+      </IconButton>
 
-      <FormControl size="small" sx={{ minWidth: 130 }}>
+      {/* flexGrow บนมือถือ → dropdown ยืดเต็มพื้นที่ที่เหลือ กดง่ายขึ้น */}
+      <FormControl size="small" sx={{ minWidth: 130, flexGrow: { xs: 1, md: 0 } }}>
         <InputLabel>เดือน</InputLabel>
         <Select value={month} label="เดือน" onChange={(e) => onChange(year, e.target.value)}>
           {thaiFullMonths.slice(1).map((name, i) => (
@@ -35,11 +55,16 @@ export default function MonthSelector({ year, month, onChange }) {
         </Select>
       </FormControl>
 
-      <IconButton onClick={next} size="small"><ChevronRightIcon /></IconButton>
+      <IconButton onClick={next} size={isMobile ? 'medium' : 'small'} aria-label="เดือนถัดไป">
+        <ChevronRightIcon />
+      </IconButton>
 
-      <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
-        {thaiFullMonths[month]} {year + 543}
-      </Typography>
+      {/* ข้อความสรุป — ซ่อนบนมือถือเพราะซ้ำกับ dropdown และทำให้ตกบรรทัด */}
+      {!isMobile && (
+        <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
+          {thaiFullMonths[month]} {year + 543}
+        </Typography>
+      )}
     </Box>
   );
 }

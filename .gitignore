@@ -22,3 +22,13 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Frontend env ส่วนตัว
+frontend/.env.local
+frontend/.env.*.local
+
+# ผลลัพธ์ publish ของ backend (สร้างใหม่ได้ด้วย scripts/install-service.ps1)
+backend/publish/
+
+# ข้อมูลการเงินส่วนตัว — ห้าม commit
+data/samples/

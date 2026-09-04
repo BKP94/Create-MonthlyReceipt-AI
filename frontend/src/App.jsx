@@ -7,7 +7,7 @@
 //   4. กำหนด Routes → แต่ละ URL ตรงกับ Component ไหน
 // ========================================================
 
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from './theme';
@@ -27,8 +27,10 @@ export default function App() {
       {/* CssBaseline — reset CSS ให้สม่ำเสมอทุก browser (คล้าย normalize.css) */}
       <CssBaseline />
 
-      {/* BrowserRouter — เปิดใช้ HTML5 History API สำหรับ navigation */}
-      <BrowserRouter>
+      {/* HashRouter — URL เป็น /#/expenses
+          ใช้แทน BrowserRouter เพราะ GitHub Pages เป็น static host
+          ที่ rewrite ทุก path ไปที่ index.html ไม่ได้ (deep link จะได้ 404) */}
+      <HashRouter>
 
         {/* Layout — กรอบหน้าจอหลัก (Sidebar + AppBar + เนื้อหา) */}
         <Layout>
@@ -54,7 +56,7 @@ export default function App() {
             <Route path="/monthly-summary" element={<MonthlySummary />} />
           </Routes>
         </Layout>
-      </BrowserRouter>
+      </HashRouter>
     </ThemeProvider>
   );
 }
