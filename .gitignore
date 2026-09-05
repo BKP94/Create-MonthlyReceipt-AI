@@ -32,3 +32,6 @@ backend/publish/
 
 # ข้อมูลการเงินส่วนตัว — ห้าม commit
 data/samples/
+
+# frontend build ที่ backend เสิร์ฟ (สร้างใหม่ด้วย pnpm build)
+backend/FinanceApi/wwwroot/

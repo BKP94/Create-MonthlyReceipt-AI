@@ -1,4 +1,4 @@
-using FinanceApi.Data;
+﻿using FinanceApi.Data;
 using FinanceApi.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -89,7 +89,26 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// Chrome Private Network Access — หน้าเว็บบน public domain (GitHub Pages)
+// ยิงมาหา IP วงส่วนตัว (Tailscale 100.x.x.x) จะถูกบล็อก
+// เว้นแต่ตอบ header นี้กลับไปตอน preflight
+app.Use(async (ctx, next) =>
+{
+    if (ctx.Request.Headers.ContainsKey("Access-Control-Request-Private-Network"))
+        ctx.Response.Headers["Access-Control-Allow-Private-Network"] = "true";
+    await next();
+});
+
 app.UseCors("AllowFrontend");
+
+// เสิร์ฟหน้าเว็บ (frontend build) จากโดเมนเดียวกับ API
+// เข้าผ่าน Tailscale ได้เลย ไม่มีปัญหา CORS / Private Network Access
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.MapControllers();
+
+// เส้นทางที่ไม่ตรงกับ API ให้ตกมาที่ index.html (SPA)
+app.MapFallbackToFile("index.html");
 
 app.Run();

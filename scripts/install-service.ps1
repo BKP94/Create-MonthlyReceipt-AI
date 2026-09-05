@@ -38,6 +38,22 @@ if ($existing) {
 }
 
 # ── 2. Publish ──
+# ── build frontend แล้วก๊อปเข้า wwwroot ให้ backend เสิร์ฟเอง ──
+# ทำแบบนี้หน้าเว็บกับ API อยู่โดเมนเดียวกัน ไม่ติด CORS / Private Network Access
+$FrontendDir = Join-Path $Root 'frontend'
+$WwwRoot     = Join-Path $Root 'backend\FinanceApi\wwwroot'
+Write-Host "build frontend..." -ForegroundColor Cyan
+Push-Location $FrontendDir
+$env:VITE_BASE_PATH = '/'
+& pnpm build
+$buildExit = $LASTEXITCODE
+Pop-Location
+if ($buildExit -ne 0) { throw "build frontend ไม่สำเร็จ (exit $buildExit)" }
+
+if (Test-Path $WwwRoot) { Remove-Item $WwwRoot -Recurse -Force }
+New-Item -ItemType Directory $WwwRoot | Out-Null
+Copy-Item (Join-Path $FrontendDir 'dist\*') $WwwRoot -Recurse -Force
+
 Write-Host "กำลัง publish ไปที่ $PublishDir ..." -ForegroundColor Cyan
 dotnet publish $Project -c Release -o $PublishDir --nologo
 if ($LASTEXITCODE -ne 0) { throw "publish ไม่สำเร็จ (exit $LASTEXITCODE)" }
