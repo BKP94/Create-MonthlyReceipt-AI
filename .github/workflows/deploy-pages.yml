@@ -14,14 +14,10 @@
 
 name: Deploy to GitHub Pages
 
+# ปิด trigger อัตโนมัติไว้ — ตอนนี้ backend เสิร์ฟหน้าเว็บเองที่โดเมนเดียวกัน
+# ผ่าน Tailscale แล้ว (ดู CONNECT.md) จึงไม่ได้ใช้ Pages
+# ถ้าวันหลังย้าย backend ขึ้น cloud ค่อยเอา push trigger กลับมา
 on:
-  push:
-    branches: [main]
-    # build เฉพาะเมื่อมีการแก้ frontend หรือแก้ workflow นี้เอง
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/deploy-pages.yml'
-  # เผื่อกดรันเองจากหน้า Actions
   workflow_dispatch:
 
 permissions:
