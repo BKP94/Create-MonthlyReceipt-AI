@@ -39,7 +39,7 @@ export default defineConfig(({ mode }) => {
         // autoUpdate — service worker อัปเดตตัวเองเมื่อมีเวอร์ชันใหม่
         // แล้ว reload หน้าให้อัตโนมัติ (คู่กับ registerSW ใน main.jsx)
         registerType: 'autoUpdate',
-        includeAssets: ['icons/apple-touch-icon.png'],
+        includeAssets: ['icons/apple-touch-icon.png', 'icons/icon.svg', 'icons/favicon-32.png'],
         manifest: {
           name: 'โปรแกรมบริหารการเงินส่วนตัว',
           short_name: 'บริหารการเงิน',
