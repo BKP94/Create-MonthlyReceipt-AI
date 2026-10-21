@@ -5,12 +5,13 @@
 //   - เพิ่ม/แก้ไข/ลบรายจ่าย (Dialog + ConfirmDialog)
 //   - Checkbox ติ๊กเมื่อชำระแล้ว (PATCH /api/expenses/:id/paid)
 //   - แถวสีเขียวเมื่อชำระแล้ว
-//   - Summary Chip แสดงยอดรวมแต่ละหมวด
+//   - แถบสรุปยอดรวมแต่ละหมวด
+// Hallmark · genre: editorial · macrostructure: ledger-table · design-system: design.md · designed-as-app
 // ========================================================
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  Alert, Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress,
+  Alert, Box, Button, Checkbox, Chip, CircularProgress,
   DialogActions, DialogContent,
   FormControl, FormControlLabel, Grid, IconButton, InputLabel, MenuItem,
   Select, Snackbar, Switch, Table, TableBody, TableCell,
@@ -22,11 +23,13 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { expenseApi, installmentApi } from '../api/financeApi';
 import MonthSelector from '../components/MonthSelector';
 import ResponsiveDialog from '../components/ResponsiveDialog';
-import MobileDataCard from '../components/MobileDataCard';
+import MobileDataCard, { MobileDataList } from '../components/MobileDataCard';
 import AddFab from '../components/AddFab';
+import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
+import { num } from '../theme';
 import {
-  formatCurrency, thaiFullMonths, categoryConfig, YEARS,
+  formatCurrency, formatDate, thaiFullMonths, categoryConfig, YEARS,
 } from '../utils/formatters';
 
 // รายการหมวดหมู่สำหรับ dropdown ใน dialog
@@ -155,13 +158,13 @@ function ExpenseDialog({ open, expense, defaultYear, defaultMonth, onClose, onSa
             <TextField label="จำนวนเงิน (บาท) *" fullWidth type="number"
               value={form.Amount} onChange={set('Amount')}
               error={!!errors.Amount} helperText={errors.Amount}
-              inputProps={{ min: 0, step: '0.01' }} />
+              inputProps={{ min: 0, step: '0.01', inputMode: 'decimal' }} />
           </Grid>
           {/* หมวดหมู่ */}
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth error={!!errors.Category}>
-              <InputLabel>หมวดหมู่ *</InputLabel>
-              <Select value={form.Category} label="หมวดหมู่ *" onChange={set('Category')}>
+              <InputLabel id="exp-category-label">หมวดหมู่ *</InputLabel>
+              <Select labelId="exp-category-label" value={form.Category} label="หมวดหมู่ *" onChange={set('Category')}>
                 {CATEGORIES.map((c) => (
                   <MenuItem key={c.value} value={c.value}>{c.label}</MenuItem>
                 ))}
@@ -171,8 +174,8 @@ function ExpenseDialog({ open, expense, defaultYear, defaultMonth, onClose, onSa
           {/* ปี */}
           <Grid item xs={6} sm={6}>
             <FormControl fullWidth>
-              <InputLabel>ปี</InputLabel>
-              <Select value={form.Year} label="ปี" onChange={set('Year')}>
+              <InputLabel id="exp-year-label">ปี</InputLabel>
+              <Select labelId="exp-year-label" value={form.Year} label="ปี" onChange={set('Year')}>
                 {YEARS.map((y) => <MenuItem key={y} value={y}>{y + 543}</MenuItem>)}
               </Select>
             </FormControl>
@@ -180,8 +183,8 @@ function ExpenseDialog({ open, expense, defaultYear, defaultMonth, onClose, onSa
           {/* เดือน (เดือนเริ่มต้น) */}
           <Grid item xs={6} sm={6}>
             <FormControl fullWidth>
-              <InputLabel>{multiMonth ? 'เดือนเริ่มต้น' : 'เดือน'}</InputLabel>
-              <Select value={form.Month} label={multiMonth ? 'เดือนเริ่มต้น' : 'เดือน'} onChange={set('Month')}>
+              <InputLabel id="exp-month-label">{multiMonth ? 'เดือนเริ่มต้น' : 'เดือน'}</InputLabel>
+              <Select labelId="exp-month-label" value={form.Month} label={multiMonth ? 'เดือนเริ่มต้น' : 'เดือน'} onChange={set('Month')}>
                 {thaiFullMonths.slice(1).map((n, i) => (
                   <MenuItem key={i + 1} value={i + 1}>{n}</MenuItem>
                 ))}
@@ -239,7 +242,7 @@ function ExpenseDialog({ open, expense, defaultYear, defaultMonth, onClose, onSa
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <Box sx={{
-                      bgcolor: 'info.50', border: '1px solid', borderColor: 'info.200',
+                      bgcolor: 'ledger.paper2', border: 1, borderColor: 'divider',
                       borderRadius: 1, px: 1.5, py: 1, height: '100%',
                       display: 'flex', alignItems: 'center',
                     }}>
@@ -250,7 +253,7 @@ function ExpenseDialog({ open, expense, defaultYear, defaultMonth, onClose, onSa
                   </Grid>
                   <Grid item xs={12}>
                     <Box sx={{
-                      bgcolor: 'primary.50', border: '1px solid', borderColor: 'primary.200',
+                      bgcolor: 'ledger.accentSoft', borderLeft: 3, borderColor: 'primary.main',
                       borderRadius: 1, px: 2, py: 1,
                     }}>
                       <Typography variant="body2" color="primary.main">
@@ -436,43 +439,53 @@ export default function Expenses() {
 
   return (
     <Box>
-      {/* Header — ชื่อหน้า + MonthSelector + ปุ่มเพิ่ม */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} mb={3}>
-        <Typography variant="h5">รายจ่ายรายเดือน</Typography>
-        <Box display="flex" alignItems="center" gap={2} flexWrap="wrap"
-          sx={{ width: { xs: '100%', md: 'auto' } }}>
-          <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
-          {/* บนมือถือใช้ปุ่มลอย (AddFab) ด้านล่างแทน เพราะกดถึงง่ายกว่า */}
-          {!isMobile && (
-            <Button variant="contained" startIcon={<AddIcon />}
-              onClick={() => { setEditTarget(null); setDialogOpen(true); }}>
-              เพิ่มรายจ่าย
-            </Button>
-          )}
-        </Box>
-      </Box>
+      <PageHeader
+        title="รายจ่ายรายเดือน"
+        description={`${thaiFullMonths[month]} ${year + 543} · ติ๊กช่องซ้ายเมื่อชำระแล้ว`}
+        actions={
+          <>
+            <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+            {/* บนมือถือใช้ปุ่มลอย (AddFab) ด้านล่างแทน เพราะกดถึงง่ายกว่า */}
+            {!isMobile && (
+              <Button variant="contained" startIcon={<AddIcon />}
+                onClick={() => { setEditTarget(null); setDialogOpen(true); }}>
+                เพิ่มรายจ่าย
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      {/* Summary Chips — แสดงยอดรวมแต่ละหมวด */}
+      {/* แถบสรุป — ยอดรวม จำนวนที่ชำระ และยอดแต่ละหมวด */}
       {!loading && expenses.length > 0 && (
-        <Box display="flex" gap={1} flexWrap="wrap" mb={2}>
-          <Chip label={`รวม ${expenses.length} รายการ`} variant="outlined" size="medium" />
-          <Chip label={`ยอดรวม ฿${formatCurrency(total)}`} color="error" variant="outlined" size="medium" />
-          {byCategory.map((c) => (
-            <Chip key={c.value}
-              label={`${c.label}: ฿${formatCurrency(c.total)}`}
-              color={categoryConfig[c.value]?.color}
-              variant="outlined" size="medium" />
+        <Box
+          component="dl"
+          sx={{
+            m: 0, mb: 3,
+            display: 'flex', flexWrap: 'wrap', columnGap: 4, rowGap: 1.5,
+          }}
+        >
+          {[
+            { label: 'ยอดรวม', value: `฿${formatCurrency(total)}`, strong: true },
+            { label: 'ชำระแล้ว', value: `${expenses.filter((e) => e.IsPaid).length} / ${expenses.length} รายการ` },
+            ...byCategory.map((c) => ({ label: c.label, value: `฿${formatCurrency(c.total)}` })),
+          ].map((s) => (
+            <Box key={s.label} sx={{ minWidth: 0 }}>
+              <Typography component="dt" variant="caption" color="text.secondary">{s.label}</Typography>
+              <Typography component="dd" sx={{ ...num, m: 0, fontSize: s.strong ? 20 : 15, fontWeight: s.strong ? 600 : 400 }}>
+                {s.value}
+              </Typography>
+            </Box>
           ))}
         </Box>
       )}
 
-      <Card>
-        <CardContent sx={{ p: 0 }}>
+      <Box component="section" aria-label="รายการรายจ่าย">
           {loading ? (
-            <Box display="flex" justifyContent="center" py={6}><CircularProgress /></Box>
+            <Box display="flex" justifyContent="center" py={6}><CircularProgress aria-label="กำลังโหลด" /></Box>
           ) : expenses.length === 0 ? (
             // Empty state — แสดงเมื่อยังไม่มีรายจ่าย
-            <Box py={6} textAlign="center">
+            <Box py={6} textAlign="center" sx={{ borderTop: 1, borderBottom: 1, borderColor: 'divider' }}>
               <Typography color="text.secondary" mb={2}>
                 ยังไม่มีรายจ่ายในเดือนนี้
               </Typography>
@@ -483,17 +496,19 @@ export default function Expenses() {
             </Box>
           ) : isMobile ? (
             // ─── มุมมองมือถือ: การ์ดหนึ่งใบต่อหนึ่งรายจ่าย ───
-            <Box sx={{ p: 1.5 }}>
+            <>
+            <MobileDataList>
               {expenses.map((exp) => (
                 <MobileDataCard
                   key={exp.Id}
                   // พื้นเขียวอ่อนเมื่อชำระแล้ว (เหมือนแถวตารางบน desktop)
-                  sx={{ bgcolor: exp.IsPaid ? '#E8F5E9' : 'inherit' }}
+                  sx={{ bgcolor: exp.IsPaid ? 'ledger.positiveSoft' : 'transparent' }}
                   leading={
                     <Checkbox
                       checked={!!exp.IsPaid}
                       onChange={() => handleTogglePaid(exp)}
                       color="success"
+                      inputProps={{ 'aria-label': `ชำระแล้ว: ${exp.Name}` }}
                     />
                   }
                   title={exp.Name}
@@ -509,43 +524,42 @@ export default function Expenses() {
                   rows={[
                     {
                       label: 'วันครบกำหนด',
-                      value: exp.DueDate
-                        ? new Date(exp.DueDate).toLocaleDateString('en-CA').replace(/(\d{4})-(\d{2})-(\d{2})/, '$1-$3-$2')
-                        : '-',
+                      value: formatDate(exp.DueDate),
                     },
                     // แสดงแถวหมายเหตุเฉพาะเมื่อมีข้อความจริง เพื่อไม่ให้การ์ดยาวเกินจำเป็น
                     ...(exp.Note ? [{ label: 'หมายเหตุ', value: exp.Note }] : []),
                   ]}
                   actions={
                     <>
-                      <IconButton color="primary"
+                      <IconButton color="primary" aria-label={`แก้ไข ${exp.Name}`}
                         onClick={() => { setEditTarget(exp); setDialogOpen(true); }}>
                         <EditIcon />
                       </IconButton>
-                      <IconButton color="error" onClick={() => handleDeleteClick(exp)}>
+                      <IconButton color="error" aria-label={`ลบ ${exp.Name}`} onClick={() => handleDeleteClick(exp)}>
                         <DeleteIcon />
                       </IconButton>
                     </>
                   }
                 />
               ))}
+            </MobileDataList>
 
-              {/* แถบรวมยอด — แทนแถว "รวมทั้งหมด" ของตาราง */}
+              {/* บรรทัดรวมยอด — เส้นคู่แบบสมุดบัญชี */}
               <Box
-                display="flex" justifyContent="space-between" alignItems="center"
-                sx={{ mt: 1, px: 1.75, py: 1.25, bgcolor: '#FAFAFA', borderRadius: 2 }}
+                display="flex" justifyContent="space-between" alignItems="baseline"
+                sx={{ px: 0.5, py: 1.5, borderBottom: '3px double', borderColor: 'text.primary' }}
               >
-                <Typography variant="body2" fontWeight={700}>รวมทั้งหมด</Typography>
-                <Typography variant="subtitle1" fontWeight={700} color="error.main">
+                <Typography variant="body2" fontWeight={600}>รวมทั้งหมด</Typography>
+                <Typography sx={{ ...num, fontSize: 18, fontWeight: 600 }}>
                   ฿{formatCurrency(total)}
                 </Typography>
               </Box>
-            </Box>
+            </>
           ) : (
-            <TableContainer>
+            <TableContainer sx={{ borderTop: 1, borderColor: 'ledger.ruleStrong' }}>
               <Table>
                 <TableHead>
-                  <TableRow sx={{ '& th': { fontWeight: 700, bgcolor: '#F5F5F5' } }}>
+                  <TableRow>
                     {/* padding="checkbox" → ลดขนาด cell ให้พอดีกับ Checkbox */}
                     <TableCell padding="checkbox" />
                     <TableCell>#</TableCell>
@@ -561,7 +575,7 @@ export default function Expenses() {
                   {expenses.map((exp, i) => (
                     // bgcolor เปลี่ยนเป็นเขียวอ่อนเมื่อ IsPaid = true
                     <TableRow key={exp.Id} hover
-                      sx={{ bgcolor: exp.IsPaid ? '#E8F5E9' : 'inherit' }}>
+                      sx={{ bgcolor: exp.IsPaid ? 'ledger.positiveSoft' : 'inherit' }}>
 
                       {/* Checkbox ชำระแล้ว */}
                       <TableCell padding="checkbox">
@@ -570,11 +584,11 @@ export default function Expenses() {
                           onChange={() => handleTogglePaid(exp)}
                           color="success"
                           size="small"
+                          inputProps={{ 'aria-label': `ชำระแล้ว: ${exp.Name}` }}
                         />
                       </TableCell>
 
-                      {/* ลำดับที่ — สีจางลงเมื่อชำระแล้ว */}
-                      <TableCell sx={{ color: exp.IsPaid ? 'text.disabled' : 'inherit' }}>{i + 1}</TableCell>
+                      <TableCell sx={{ ...num, color: 'text.secondary' }}>{i + 1}</TableCell>
                       <TableCell>{exp.Name}</TableCell>
 
                       {/* หมวดหมู่ Chip */}
@@ -586,15 +600,13 @@ export default function Expenses() {
                         />
                       </TableCell>
 
-                      <TableCell align="right" sx={{ fontWeight: 600 }}>
+                      <TableCell align="right" sx={{ ...num, fontWeight: 500 }}>
                         ฿{formatCurrency(exp.Amount)}
                       </TableCell>
 
-                      {/* วันครบกำหนด — แสดงในรูปแบบ yyyy-dd-mm */}
-                      <TableCell align="center">
-                        {exp.DueDate
-                          ? new Date(exp.DueDate).toLocaleDateString('en-CA').replace(/(\d{4})-(\d{2})-(\d{2})/, '$1-$3-$2')
-                          : '-'}
+                      {/* วันครบกำหนด — dd/mm/พ.ศ. */}
+                      <TableCell align="center" sx={num}>
+                        {formatDate(exp.DueDate)}
                       </TableCell>
 
                       <TableCell align="center">
@@ -606,13 +618,13 @@ export default function Expenses() {
                       {/* ปุ่ม แก้ไข / ลบ */}
                       <TableCell align="center">
                         <Tooltip title="แก้ไข">
-                          <IconButton size="small" color="primary"
+                          <IconButton size="small" color="primary" aria-label={`แก้ไข ${exp.Name}`}
                             onClick={() => { setEditTarget(exp); setDialogOpen(true); }}>
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="ลบ">
-                          <IconButton size="small" color="error"
+                          <IconButton size="small" color="error" aria-label={`ลบ ${exp.Name}`}
                             onClick={() => handleDeleteClick(exp)}>
                             <DeleteIcon fontSize="small" />
                           </IconButton>
@@ -622,9 +634,10 @@ export default function Expenses() {
                   ))}
 
                   {/* แถวรวมยอด */}
-                  <TableRow sx={{ '& td': { fontWeight: 700, bgcolor: '#FAFAFA' } }}>
-                    <TableCell colSpan={3} align="right">รวมทั้งหมด</TableCell>
-                    <TableCell align="right" sx={{ color: 'error.main', fontSize: '1rem' }}>
+                  {/* แถวรวมยอด — 8 คอลัมน์: 4 | ยอด | 3, ปิดด้วยเส้นคู่ */}
+                  <TableRow sx={{ '& td': { fontWeight: 600, borderBottom: '3px double', borderColor: 'text.primary' } }}>
+                    <TableCell colSpan={4} align="right">รวมทั้งหมด</TableCell>
+                    <TableCell align="right" sx={{ ...num, fontSize: '1rem' }}>
                       ฿{formatCurrency(total)}
                     </TableCell>
                     <TableCell colSpan={3} />
@@ -633,8 +646,7 @@ export default function Expenses() {
               </Table>
             </TableContainer>
           )}
-        </CardContent>
-      </Card>
+      </Box>
 
       {/* ปุ่มลอยเพิ่มรายจ่าย — เฉพาะมือถือ */}
       {isMobile && (
@@ -704,7 +716,7 @@ export default function Expenses() {
         open={snack.open}
         autoHideDuration={3000}
         onClose={() => setSnack((s) => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert severity={snack.severity} sx={{ width: '100%' }} onClose={() => setSnack((s) => ({ ...s, open: false }))}>
           {snack.msg}

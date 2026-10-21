@@ -50,8 +50,8 @@ export default defineConfig(({ mode }) => {
           // standalone — เปิดจากไอคอนหน้าจอโฮมแล้วไม่มีแถบ URL เหมือนแอปจริง
           display: 'standalone',
           orientation: 'portrait',
-          background_color: '#F0F4F8',
-          theme_color: '#1565C0',
+          background_color: '#F9F5EC',
+          theme_color: '#F9F5EC',
           icons: [
             { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
             { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },

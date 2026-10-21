@@ -69,8 +69,8 @@ export default function ApiSettingsDialog({ open, onClose }) {
     <ResponsiveDialog open={open} onClose={onClose} maxWidth="sm" title="ตั้งค่าการเชื่อมต่อ">
       <DialogContent>
         <Typography variant="body2" color="text.secondary" mb={2}>
-          ที่อยู่ของ backend ที่เครื่องนี้จะเรียกข้อมูล
-          เว้นว่างไว้ = ใช้โดเมนเดียวกับหน้าเว็บนี้ (สำหรับตอนรันบนเครื่องตัวเอง)
+          ปกติเว้นว่างไว้ — หน้าเว็บกับข้อมูลอยู่โดเมนเดียวกันอยู่แล้ว
+          กรอกเฉพาะเมื่อต้องการให้เครื่องนี้ดึงข้อมูลจากเซิร์ฟเวอร์อื่น
         </Typography>
 
         <TextField
@@ -78,7 +78,7 @@ export default function ApiSettingsDialog({ open, onClose }) {
           fullWidth
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://xxxx-xxxx.trycloudflare.com"
+          placeholder="https://desktop-ptt1otr.tail2d0ea0.ts.net"
           helperText="ใส่แค่ที่อยู่หลัก ไม่ต้องมี /api ต่อท้าย"
           // มือถือไม่ต้องขึ้นตัวใหญ่/แก้คำอัตโนมัติสำหรับ URL
           inputProps={{ autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false }}

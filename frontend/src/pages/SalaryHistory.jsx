@@ -1,5 +1,6 @@
 // ========================================================
 // SalaryHistory.jsx — หน้าประวัติเงินเดือนรายปี
+// Hallmark · genre: editorial · macrostructure: ledger-table · design-system: design.md · designed-as-app
 // ฟีเจอร์:
 //   - บันทึกเงินเดือนแต่ละปี พร้อมหมายเหตุ
 //   - คำนวณ % ขึ้นเงินเดือนเทียบปีก่อนหน้าอัตโนมัติ
@@ -9,28 +10,28 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Alert, Box, Button, Card, CardContent, Chip, CircularProgress,
+  Alert, Box, Button, CircularProgress,
   DialogActions, DialogContent,
-  Grid, IconButton, Snackbar, Table, TableBody, TableCell,
+  IconButton, Paper, Snackbar, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, TextField, Tooltip, Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
-import TrendingFlatIcon from '@mui/icons-material/TrendingFlat';
 import SyncIcon from '@mui/icons-material/Sync';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip as ChartTooltip, ResponsiveContainer, Cell, ReferenceLine,
+  Tooltip as ChartTooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 import { salaryHistoryApi } from '../api/financeApi';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ResponsiveDialog from '../components/ResponsiveDialog';
-import MobileDataCard from '../components/MobileDataCard';
+import MobileDataCard, { MobileDataList } from '../components/MobileDataCard';
 import AddFab from '../components/AddFab';
+import PageHeader from '../components/PageHeader';
+import Section from '../components/Section';
 import useIsMobile from '../hooks/useIsMobile';
+import { ledger, num } from '../theme';
 import { formatCurrency, formatCurrencyShort } from '../utils/formatters';
 
 // =====================================================
@@ -49,28 +50,23 @@ function enrichWithChange(list) {
   });
 }
 
-// =====================================================
-// SummaryCard — การ์ดสรุปตัวเลขด้านบน
-// =====================================================
-const SummaryCard = ({ title, value, subtitle, color = 'primary.main', icon }) => (
-  <Card sx={{ height: '100%' }}>
-    <CardContent sx={{ p: 2.5 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-        <Box flex={1}>
-          <Typography variant="body2" color="text.secondary" mb={0.5}>{title}</Typography>
-          <Typography variant="h5" fontWeight={700} color={color}>{value}</Typography>
-          {subtitle && (
-            <Typography variant="caption" color="text.secondary">{subtitle}</Typography>
-          )}
-        </Box>
-        {icon && (
-          <Box sx={{ bgcolor: `${color}22`, borderRadius: 2, p: 1, ml: 1 }}>
-            {icon}
-          </Box>
-        )}
-      </Box>
-    </CardContent>
-  </Card>
+// signed — ใส่เครื่องหมาย + / − หน้าตัวเลข (ใช้ minus จริง ไม่ใช่ hyphen)
+const signed = (n, text) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${text}`;
+const changeColor = (n) => (n > 0 ? 'success.main' : n < 0 ? 'error.main' : 'text.secondary');
+
+// Figure — ตัวเลขสรุปหนึ่งช่องในแถบด้านบน
+const Figure = ({ label, value, note, color = 'text.primary' }) => (
+  <Box sx={{
+    py: { xs: 1.25, sm: 2 }, px: { xs: 0, sm: 2.5 }, minWidth: 0,
+    // มือถือ: label ซ้าย / ค่าขวา ในบรรทัดเดียว (note ซ่อน เพื่อไม่ให้แถบยาวเกิน)
+    display: { xs: 'flex', sm: 'block' }, justifyContent: 'space-between', alignItems: 'baseline', gap: 1,
+  }}>
+    <Typography component="dt" variant="body2" color="text.secondary">{label}</Typography>
+    <Typography component="dd" sx={{ ...num, m: 0, mt: { sm: 0.5 }, fontSize: { xs: 17, sm: 22 }, fontWeight: 500, whiteSpace: 'nowrap' }} color={color}>
+      {value}
+    </Typography>
+    {note && <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>{note}</Typography>}
+  </Box>
 );
 
 // =====================================================
@@ -78,21 +74,17 @@ const SummaryCard = ({ title, value, subtitle, color = 'primary.main', icon }) =
 // =====================================================
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
+  const pct = payload[0].payload.changePercent;
   return (
-    <Card sx={{ p: 1.5, minWidth: 160 }}>
-      <Typography variant="body2" fontWeight={600} mb={0.5}>{label}</Typography>
-      <Typography variant="body2" color="primary.main">
-        ฿{formatCurrency(payload[0].value)}
-      </Typography>
-      {payload[0].payload.changePercent != null && (
-        <Typography
-          variant="caption"
-          color={payload[0].payload.changePercent > 0 ? 'success.main' : 'error.main'}
-        >
-          {payload[0].payload.changePercent > 0 ? '+' : ''}{payload[0].payload.changePercent}%
+    <Paper sx={{ p: 1.5, minWidth: 160 }}>
+      <Typography variant="body2" fontWeight={600} mb={0.5}>ปี {label}</Typography>
+      <Typography variant="body2" sx={num}>฿{formatCurrency(payload[0].value)}</Typography>
+      {pct != null && (
+        <Typography variant="caption" sx={num} color={changeColor(pct)}>
+          {signed(pct, `${Math.abs(pct)}%`)}
         </Typography>
       )}
-    </Card>
+    </Paper>
   );
 };
 
@@ -169,7 +161,7 @@ function SalaryDialog({ open, record, onClose, onSaved }) {
             onChange={set('Year')}
             error={!!errors.Year}
             helperText={errors.Year || (form.Year ? `พ.ศ. ${Number(form.Year) + 543}` : '')}
-            inputProps={{ min: 2000, max: 2100 }}
+            inputProps={{ min: 2000, max: 2100, inputMode: 'numeric' }}
           />
           {/* เงินเดือน */}
           <TextField
@@ -180,7 +172,7 @@ function SalaryDialog({ open, record, onClose, onSaved }) {
             onChange={set('Salary')}
             error={!!errors.Salary}
             helperText={errors.Salary || (form.Salary ? `฿${formatCurrency(parseFloat(form.Salary) || 0)}` : '')}
-            inputProps={{ min: 1, step: '0.01' }}
+            inputProps={{ min: 1, step: '0.01', inputMode: 'decimal' }}
           />
           {/* หมายเหตุ */}
           <TextField
@@ -286,178 +278,137 @@ export default function SalaryHistory() {
     changePercent: r.changePercent,
   }));
 
-  // สีแท่ง BarChart — ไล่เข้มขึ้นตามลำดับ
-  const BAR_COLORS = ['#90CAF9', '#64B5F6', '#42A5F5', '#2196F3', '#1976D2', '#1565C0', '#0D47A1'];
+  const openAdd = () => { setEditTarget(null); setDialogOpen(true); };
+  const rowsNewestFirst = [...enriched].reverse();  // ปีล่าสุดอยู่บนสุด
 
   return (
     <Box>
-      {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} mb={3}>
-        <Box>
-          <Typography variant="h5">ประวัติเงินเดือน</Typography>
-          <Typography variant="body2" color="text.secondary">
-            บันทึกการปรับเงินเดือนรายปี — ปีล่าสุดจะ sync ไปที่ตั้งค่างบประมาณอัตโนมัติ
-          </Typography>
-        </Box>
-        {/* บนมือถือใช้ปุ่มลอย (AddFab) ด้านล่างแทน */}
-        {!isMobile && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => { setEditTarget(null); setDialogOpen(true); }}
-          >
+      <PageHeader
+        title="ประวัติเงินเดือน"
+        description="บันทึกการปรับเงินเดือนรายปี — ปีล่าสุดจะ sync ไปที่ตั้งค่างบประมาณอัตโนมัติ"
+        actions={!isMobile && (
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>
             เพิ่มข้อมูลเงินเดือน
           </Button>
         )}
-      </Box>
+      />
 
       {loading ? (
-        <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>
+        <Box display="flex" justifyContent="center" py={8}><CircularProgress aria-label="กำลังโหลด" /></Box>
       ) : (
         <>
-          {/* Summary Cards — แสดงเมื่อมีข้อมูล ≥ 1 รายการ */}
+          {/* แถบตัวเลขสรุป — แสดงเมื่อมีข้อมูล ≥ 1 รายการ */}
           {list.length > 0 && (
-            <Grid container spacing={2} mb={3}>
-              <Grid item xs={12} sm={6} md={3}>
-                <SummaryCard
-                  title="เงินเดือนล่าสุด"
-                  value={`฿${formatCurrency(latest?.Salary)}`}
-                  subtitle={`ปี พ.ศ. ${latest ? latest.Year + 543 : '-'}`}
-                  color="primary.main"
-                  icon={<TrendingUpIcon sx={{ color: 'primary.main' }} />}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <SummaryCard
-                  title="เพิ่มขึ้นรวม"
-                  value={totalGrowthPct != null ? `+${totalGrowthPct}%` : '-'}
-                  subtitle={`จาก ฿${formatCurrency(first?.Salary)} ถึงปัจจุบัน`}
-                  color="success.main"
-                  icon={<TrendingUpIcon sx={{ color: 'success.main' }} />}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <SummaryCard
-                  title="เพิ่มขึ้นเฉลี่ย/ปี"
-                  value={avgGrowthPct != null ? `+${avgGrowthPct}%` : '-'}
-                  subtitle="เฉลี่ยจากปีที่มีการเปลี่ยนแปลง"
-                  color="info.main"
-                  icon={<TrendingUpIcon sx={{ color: 'info.main' }} />}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <SummaryCard
-                  title="ข้อมูลทั้งหมด"
-                  value={`${list.length} ปี`}
-                  subtitle={list.length > 1 ? `ปี ${first.Year + 543} – ${latest.Year + 543}` : ''}
-                  color="warning.main"
-                />
-              </Grid>
-            </Grid>
+            <Box
+              component="dl"
+              sx={{
+                m: 0, mb: 5,
+                display: 'grid',
+                gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' },
+                borderTop: 1, borderBottom: 1, borderColor: 'divider',
+                '& > div': { borderColor: 'divider' },
+                '& > div:not(:first-of-type)': { borderTop: { xs: 1, sm: 0 } },
+                '& > div:nth-of-type(even)': { borderLeft: { sm: 1 } },
+                '& > div:nth-of-type(3)': { borderLeft: { md: 1 }, borderTop: { sm: 1, md: 0 } },
+                '& > div:nth-of-type(4)': { borderTop: { sm: 1, md: 0 } },
+              }}
+            >
+              <Figure
+                label="เงินเดือนล่าสุด"
+                value={`฿${formatCurrency(latest?.Salary)}`}
+                note={`ปี พ.ศ. ${latest ? latest.Year + 543 : '-'}`}
+              />
+              <Figure
+                label="เปลี่ยนแปลงรวม"
+                value={totalGrowthPct != null ? signed(Number(totalGrowthPct), `${Math.abs(totalGrowthPct)}%`) : '—'}
+                note={list.length > 1 ? `จาก ฿${formatCurrency(first?.Salary)}` : 'ต้องมีข้อมูลอย่างน้อย 2 ปี'}
+                color={totalGrowthPct != null ? changeColor(Number(totalGrowthPct)) : 'text.secondary'}
+              />
+              <Figure
+                label="เฉลี่ยต่อปี"
+                value={avgGrowthPct != null ? signed(Number(avgGrowthPct), `${Math.abs(avgGrowthPct)}%`) : '—'}
+                note="เฉลี่ยจากปีที่มีข้อมูลก่อนหน้า"
+                color={avgGrowthPct != null ? changeColor(Number(avgGrowthPct)) : 'text.secondary'}
+              />
+              <Figure
+                label="ข้อมูลทั้งหมด"
+                value={`${list.length} ปี`}
+                note={list.length > 1 ? `${first.Year + 543} – ${latest.Year + 543}` : ''}
+              />
+            </Box>
           )}
 
-          {/* BarChart — แสดงเมื่อมีข้อมูล ≥ 2 ปี */}
+          {/* BarChart — แสดงเมื่อมีข้อมูล ≥ 2 ปี; ปีล่าสุดเป็นหมึกน้ำเงิน ปีอื่นเป็นเส้นเทา */}
           {list.length >= 2 && (
-            <Card sx={{ mb: 3 }}>
-              <CardContent sx={{ p: 2.5 }}>
-                <Typography variant="subtitle1" fontWeight={600} mb={2}>
-                  พัฒนาการเงินเดือน
-                </Typography>
+            <Section title="พัฒนาการเงินเดือน" aside="ปีล่าสุดแสดงเป็นสีน้ำเงิน">
+              <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
                 <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="name" tick={{ fontSize: 13, fontFamily: 'Sarabun' }} />
+                  <BarChart data={chartData} margin={{ top: 10, right: 8, left: 0, bottom: 5 }}>
+                    <CartesianGrid vertical={false} stroke={ledger.rule} />
+                    <XAxis dataKey="name" tickLine={false} axisLine={{ stroke: ledger.ruleStrong }}
+                      tick={{ fontSize: 12, fill: ledger.muted, fontFamily: num.fontFamily }} />
                     <YAxis
                       tickFormatter={formatCurrencyShort}
-                      tick={{ fontSize: 12 }}
-                      width={65}
+                      tickLine={false} axisLine={false}
+                      tick={{ fontSize: 12, fill: ledger.muted, fontFamily: num.fontFamily }}
+                      width={56}
                     />
-                    <ChartTooltip content={<CustomTooltip />} />
-                    <Bar dataKey="เงินเดือน" radius={[6, 6, 0, 0]} maxBarSize={80}>
+                    <ChartTooltip content={<CustomTooltip />} cursor={{ fill: ledger.paper3 }} />
+                    <Bar dataKey="เงินเดือน" radius={[2, 2, 0, 0]} maxBarSize={64}>
                       {chartData.map((entry, index) => (
                         <Cell
-                          key={index}
-                          fill={BAR_COLORS[Math.min(index, BAR_COLORS.length - 1)]}
+                          key={entry.name}
+                          fill={index === chartData.length - 1 ? ledger.accent : ledger.ruleStrong}
                         />
                       ))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-              </CardContent>
-            </Card>
+              </Box>
+            </Section>
           )}
 
           {/* ตารางรายการ */}
-          <Card>
-            <CardContent sx={{ p: 0 }}>
+          <Section title="รายปี" sx={{ mb: 2 }}>
               {list.length === 0 ? (
-                <Box py={8} textAlign="center">
+                <Box py={8} textAlign="center" sx={{ borderTop: 1, borderBottom: 1, borderColor: 'divider' }}>
                   <Typography color="text.secondary" mb={2}>
                     ยังไม่มีข้อมูลเงินเดือน
                   </Typography>
-                  <Button
-                    variant="outlined"
-                    startIcon={<AddIcon />}
-                    onClick={() => { setEditTarget(null); setDialogOpen(true); }}
-                  >
+                  <Button variant="outlined" startIcon={<AddIcon />} onClick={openAdd}>
                     เพิ่มข้อมูลปีแรก
                   </Button>
                 </Box>
               ) : isMobile ? (
-                // ─── มุมมองมือถือ: การ์ดหนึ่งใบต่อหนึ่งปี ───
-                <Box sx={{ p: 1.5 }}>
-                  {[...enriched].reverse().map((row) => {
+                // ─── มุมมองมือถือ: หนึ่งบรรทัดต่อหนึ่งปี ───
+                <MobileDataList>
+                  {rowsNewestFirst.map((row) => {
                     const isLatest = row.Id === latest?.Id;
                     return (
                       <MobileDataCard
                         key={row.Id}
-                        sx={{ bgcolor: isLatest ? 'rgba(33,150,243,0.05)' : 'inherit' }}
-                        title={`ปี ${row.Year + 543}`}
-                        titleChips={
-                          <>
-                            {isLatest && <Chip label="ปัจจุบัน" color="primary" size="small" />}
-                            {row.changePercent != null && (
-                              <Chip
-                                size="small"
-                                icon={
-                                  row.changePercent > 0
-                                    ? <TrendingUpIcon fontSize="small" />
-                                    : row.changePercent < 0
-                                      ? <TrendingDownIcon fontSize="small" />
-                                      : <TrendingFlatIcon fontSize="small" />
-                                }
-                                label={`${row.changePercent > 0 ? '+' : ''}${row.changePercent}%`}
-                                color={
-                                  row.changePercent > 5 ? 'success'
-                                  : row.changePercent > 0 ? 'primary'
-                                  : row.changePercent < 0 ? 'error'
-                                  : 'default'
-                                }
-                                variant={row.changePercent === 0 ? 'outlined' : 'filled'}
-                              />
-                            )}
-                          </>
-                        }
+                        // ปีล่าสุด — เส้นหมึกน้ำเงินด้านซ้าย
+                        sx={isLatest ? { borderLeft: 3, borderLeftColor: 'primary.main', pl: 1.5 } : undefined}
+                        title={`ปี ${row.Year + 543}${isLatest ? ' · ปัจจุบัน' : ''}`}
                         amount={`฿${formatCurrency(row.Salary)}`}
                         rows={[
                           {
-                            label: 'เพิ่มขึ้น (บาท)',
+                            label: 'เปลี่ยนแปลง',
                             value: row.changeAmount != null
-                              ? `${row.changeAmount > 0 ? '+' : ''}฿${formatCurrency(row.changeAmount)}`
+                              ? `${signed(row.changeAmount, `฿${formatCurrency(Math.abs(row.changeAmount))}`)} (${signed(row.changePercent, `${Math.abs(row.changePercent)}%`)})`
                               : '—',
-                            color: row.changeAmount > 0 ? 'success.main'
-                              : row.changeAmount < 0 ? 'error.main' : 'text.secondary',
+                            color: row.changeAmount != null ? changeColor(row.changeAmount) : 'text.secondary',
                           },
                           // แสดงหมายเหตุเฉพาะเมื่อมีข้อความจริง
                           ...(row.Note ? [{ label: 'หมายเหตุ', value: row.Note }] : []),
                         ]}
                         actions={
                           <>
-                            <IconButton color="primary"
+                            <IconButton color="primary" aria-label={`แก้ไขปี ${row.Year + 543}`}
                               onClick={() => { setEditTarget(row); setDialogOpen(true); }}>
                               <EditIcon />
                             </IconButton>
-                            <IconButton color="error" onClick={() => setDeleteId(row.Id)}>
+                            <IconButton color="error" aria-label={`ลบปี ${row.Year + 543}`} onClick={() => setDeleteId(row.Id)}>
                               <DeleteIcon />
                             </IconButton>
                           </>
@@ -465,112 +416,71 @@ export default function SalaryHistory() {
                       />
                     );
                   })}
-                </Box>
+                </MobileDataList>
               ) : (
-                <TableContainer>
+                <TableContainer sx={{ borderTop: 1, borderColor: 'ledger.ruleStrong' }}>
                   <Table>
                     <TableHead>
-                      <TableRow sx={{ '& th': { fontWeight: 700, bgcolor: '#F5F5F5' } }}>
+                      <TableRow>
                         <TableCell>ปี (พ.ศ.)</TableCell>
                         <TableCell align="right">เงินเดือน</TableCell>
-                        <TableCell align="right">เพิ่มขึ้น (บาท)</TableCell>
-                        <TableCell align="center">% เพิ่มขึ้น</TableCell>
+                        <TableCell align="right">เปลี่ยนแปลง (บาท)</TableCell>
+                        <TableCell align="right">%</TableCell>
                         <TableCell>หมายเหตุ</TableCell>
                         <TableCell align="center">ดำเนินการ</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {/* แสดงจากใหม่ไปเก่า (reverse) เพื่อให้ปีล่าสุดอยู่บนสุด */}
-                      {[...enriched].reverse().map((row, idx) => {
+                      {rowsNewestFirst.map((row) => {
                         const isLatest = row.Id === latest?.Id;
                         return (
                           <TableRow
                             key={row.Id}
                             hover
-                            sx={{ bgcolor: isLatest ? 'rgba(33,150,243,0.05)' : 'inherit' }}
+                            // ปีล่าสุด — เส้นหมึกน้ำเงินด้านซ้าย
+                            sx={isLatest ? { '& td:first-of-type': { boxShadow: `inset 3px 0 0 ${ledger.accent}` } } : undefined}
                           >
-                            {/* ปี พ.ศ. + badge "ปัจจุบัน" */}
                             <TableCell>
-                              <Box display="flex" alignItems="center" gap={1}>
-                                <Typography fontWeight={isLatest ? 700 : 400}>
-                                  {row.Year + 543}
+                              <Typography sx={{ ...num, fontWeight: isLatest ? 600 : 400 }} component="span">
+                                {row.Year + 543}
+                              </Typography>
+                              {isLatest && (
+                                <Typography component="span" variant="caption" color="primary.main" fontWeight={600} ml={1}>
+                                  ปัจจุบัน
                                 </Typography>
-                                {isLatest && (
-                                  <Chip label="ปัจจุบัน" color="primary" size="small" />
-                                )}
-                              </Box>
+                              )}
                             </TableCell>
 
-                            {/* เงินเดือน */}
-                            <TableCell align="right" sx={{ fontWeight: 600 }}>
+                            <TableCell align="right" sx={{ ...num, fontWeight: 500 }}>
                               ฿{formatCurrency(row.Salary)}
                             </TableCell>
 
-                            {/* เพิ่มขึ้น (บาท) */}
-                            <TableCell align="right">
-                              {row.changeAmount != null ? (
-                                <Typography
-                                  variant="body2"
-                                  fontWeight={600}
-                                  color={row.changeAmount > 0 ? 'success.main' : row.changeAmount < 0 ? 'error.main' : 'text.secondary'}
-                                >
-                                  {row.changeAmount > 0 ? '+' : ''}฿{formatCurrency(row.changeAmount)}
-                                </Typography>
-                              ) : (
-                                <Typography variant="body2" color="text.disabled">—</Typography>
-                              )}
+                            <TableCell align="right" sx={{ ...num, color: row.changeAmount != null ? changeColor(row.changeAmount) : 'text.secondary' }}>
+                              {row.changeAmount != null
+                                ? signed(row.changeAmount, `฿${formatCurrency(Math.abs(row.changeAmount))}`)
+                                : '—'}
                             </TableCell>
 
-                            {/* % เพิ่มขึ้น พร้อม Chip + icon */}
-                            <TableCell align="center">
-                              {row.changePercent != null ? (
-                                <Chip
-                                  size="small"
-                                  icon={
-                                    row.changePercent > 0
-                                      ? <TrendingUpIcon fontSize="small" />
-                                      : row.changePercent < 0
-                                        ? <TrendingDownIcon fontSize="small" />
-                                        : <TrendingFlatIcon fontSize="small" />
-                                  }
-                                  label={`${row.changePercent > 0 ? '+' : ''}${row.changePercent}%`}
-                                  color={
-                                    row.changePercent > 5 ? 'success'
-                                    : row.changePercent > 0 ? 'primary'
-                                    : row.changePercent < 0 ? 'error'
-                                    : 'default'
-                                  }
-                                  variant={row.changePercent === 0 ? 'outlined' : 'filled'}
-                                />
-                              ) : (
-                                <Typography variant="body2" color="text.disabled">—</Typography>
-                              )}
+                            <TableCell align="right" sx={{ ...num, color: row.changePercent != null ? changeColor(row.changePercent) : 'text.secondary' }}>
+                              {row.changePercent != null ? signed(row.changePercent, `${Math.abs(row.changePercent)}%`) : '—'}
                             </TableCell>
 
-                            {/* หมายเหตุ */}
                             <TableCell>
                               <Typography variant="body2" color="text.secondary">
                                 {row.Note || '—'}
                               </Typography>
                             </TableCell>
 
-                            {/* ปุ่มดำเนินการ */}
-                            <TableCell align="center">
+                            <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
                               <Tooltip title="แก้ไข">
-                                <IconButton
-                                  size="small"
-                                  color="primary"
-                                  onClick={() => { setEditTarget(row); setDialogOpen(true); }}
-                                >
+                                <IconButton size="small" color="primary" aria-label={`แก้ไขปี ${row.Year + 543}`}
+                                  onClick={() => { setEditTarget(row); setDialogOpen(true); }}>
                                   <EditIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                               <Tooltip title="ลบ">
-                                <IconButton
-                                  size="small"
-                                  color="error"
-                                  onClick={() => setDeleteId(row.Id)}
-                                >
+                                <IconButton size="small" color="error" aria-label={`ลบปี ${row.Year + 543}`}
+                                  onClick={() => setDeleteId(row.Id)}>
                                   <DeleteIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
@@ -582,13 +492,12 @@ export default function SalaryHistory() {
                   </Table>
                 </TableContainer>
               )}
-            </CardContent>
-          </Card>
+          </Section>
 
           {/* หมายเหตุ auto-sync */}
           {list.length > 0 && (
-            <Box display="flex" alignItems="center" gap={0.5} mt={1.5}>
-              <SyncIcon fontSize="small" sx={{ color: 'text.disabled' }} />
+            <Box display="flex" alignItems="center" gap={0.75}>
+              <SyncIcon fontSize="small" sx={{ color: 'text.secondary' }} />
               <Typography variant="caption" color="text.secondary">
                 เมื่อเพิ่มหรือแก้ไขข้อมูลปีล่าสุด เงินเดือนจะถูกอัปเดตในหน้า "ตั้งค่างบประมาณ" อัตโนมัติ
               </Typography>
@@ -624,7 +533,7 @@ export default function SalaryHistory() {
         open={snack.open}
         autoHideDuration={5000}
         onClose={() => setSnack((s) => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert
           severity={snack.severity}

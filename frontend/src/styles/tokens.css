@@ -1,0 +1,76 @@
+/* Hallmark · design-system tokens · source: /design.md · genre: editorial (ledger)
+ * theme.js mirrors these as hex — change both together. */
+
+:root {
+  --color-paper: oklch(97% 0.012 85);
+  --color-paper-2: oklch(94.5% 0.014 82);
+  --color-paper-3: oklch(91% 0.016 80);
+  --color-ink: oklch(20% 0.012 60);
+  --color-ink-2: oklch(38% 0.012 65);
+  --color-muted: oklch(50% 0.012 70);
+  --color-rule: oklch(84% 0.010 80);
+  --color-rule-strong: oklch(70% 0.012 75);
+  --color-accent: oklch(45% 0.12 255);
+  --color-accent-soft: oklch(94% 0.025 255);
+  --color-positive: oklch(46% 0.11 150);
+  --color-positive-soft: oklch(95% 0.03 150);
+  --color-negative: oklch(50% 0.16 28);
+  --color-negative-soft: oklch(95% 0.03 28);
+  --color-warning: oklch(50% 0.11 60);
+  --color-warning-soft: oklch(95% 0.035 70);
+  --color-focus: var(--color-accent);
+
+  --font-display: "Noto Serif Thai", "Noto Serif", Georgia, serif;
+  --font-body: "IBM Plex Sans Thai", "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
+
+  --motion-fast: 120ms;
+  --motion-base: 160ms;
+
+  color-scheme: light;
+}
+
+html,
+body {
+  overflow-x: clip;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes ledger-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.page-enter {
+  animation: ledger-fade var(--motion-base) ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

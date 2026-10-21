@@ -38,8 +38,8 @@ export default function MonthSelector({ year, month, onChange }) {
 
       {/* flexGrow บนมือถือ → dropdown ยืดเต็มพื้นที่ที่เหลือ กดง่ายขึ้น */}
       <FormControl size="small" sx={{ minWidth: 130, flexGrow: { xs: 1, md: 0 } }}>
-        <InputLabel>เดือน</InputLabel>
-        <Select value={month} label="เดือน" onChange={(e) => onChange(year, e.target.value)}>
+        <InputLabel id="month-select-label">เดือน</InputLabel>
+        <Select labelId="month-select-label" value={month} label="เดือน" onChange={(e) => onChange(year, e.target.value)}>
           {thaiFullMonths.slice(1).map((name, i) => (
             <MenuItem key={i + 1} value={i + 1}>{name}</MenuItem>
           ))}
@@ -47,8 +47,8 @@ export default function MonthSelector({ year, month, onChange }) {
       </FormControl>
 
       <FormControl size="small" sx={{ minWidth: 90 }}>
-        <InputLabel>ปี</InputLabel>
-        <Select value={year} label="ปี" onChange={(e) => onChange(e.target.value, month)}>
+        <InputLabel id="year-select-label">ปี</InputLabel>
+        <Select labelId="year-select-label" value={year} label="ปี" onChange={(e) => onChange(e.target.value, month)}>
           {YEARS.map((y) => (
             <MenuItem key={y} value={y}>{y + 543}</MenuItem>
           ))}

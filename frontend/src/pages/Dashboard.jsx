@@ -1,102 +1,105 @@
 // ========================================================
 // Dashboard.jsx — หน้าแดชบอร์ดสรุปภาพรวมการเงิน
+// Hallmark · genre: editorial · macrostructure: stat-led · design-system: design.md · designed-as-app
 // โหลดข้อมูลจาก GET /api/dashboard?year=...&month=...
 // แสดง:
-//   - StatCard 4 ใบ (เงินเดือนสุทธิ, งบหนี้, งบประจำวัน, งบเก็บ)
-//   - สรุปรายจ่าย + Progress Bar การใช้งบ
-//   - เงินคงเหลือ
-//   - ยอดผ่อนชำระ
+//   - ตัวเลขใหญ่ "คงเหลือเดือนนี้" + สมการ รายได้ − รายจ่าย = คงเหลือ
+//   - แถวตัวเลขรอง (งบหนี้, งบประจำวัน, เป้าเงินเก็บ, ยอดผ่อน)
+//   - การใช้งบแต่ละหมวด
 //   - BarChart แนวโน้ม 6 เดือน
 //   - ตารางรายการผ่อนที่ยังค้างอยู่
 // ========================================================
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Alert, Box, Card, CardContent, Chip, CircularProgress,
-  Grid, LinearProgress, Paper, Table, TableBody, TableCell,
+  Alert, Box, CircularProgress, LinearProgress, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Typography,
 } from '@mui/material';
-import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
-import CreditCardIcon from '@mui/icons-material/CreditCard';
-import SavingsIcon from '@mui/icons-material/Savings';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 import { dashboardApi } from '../api/financeApi';
 import MonthSelector from '../components/MonthSelector';
-import MobileDataCard from '../components/MobileDataCard';
+import MobileDataCard, { MobileDataList } from '../components/MobileDataCard';
+import PageHeader from '../components/PageHeader';
+import Section from '../components/Section';
 import useIsMobile from '../hooks/useIsMobile';
-import { formatCurrency, formatCurrencyShort, thaiShortMonths } from '../utils/formatters';
+import { ledger, fonts, num } from '../theme';
+import { formatCurrency, formatCurrencyShort, thaiShortMonths, thaiFullMonths } from '../utils/formatters';
 
 // =====================================================
-// StatCard — Component การ์ดแสดงตัวเลขสรุป (ใช้ 4 ใบด้านบน)
-// Props: title, amount, subtitle, icon, color, bgColor
+// Figure — ตัวเลขรองหนึ่งช่องในแถบตัวเลข (label / ยอด / คำอธิบาย)
 // =====================================================
-const StatCard = ({ title, amount, subtitle, icon, color = 'primary.main', bgColor }) => (
-  <Card sx={{ height: '100%' }}>
-    <CardContent sx={{ p: 2.5 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-        <Box flex={1}>
-          {/* ชื่อหัวการ์ด */}
-          <Typography variant="body2" color="text.secondary" mb={0.5}>{title}</Typography>
-          {/* ตัวเลขหลัก */}
-          <Typography variant="h5" fontWeight={700} color={color} noWrap>
-            ฿{formatCurrency(amount)}
-          </Typography>
-          {/* คำอธิบายเพิ่มเติม */}
-          {subtitle && (
-            <Typography variant="caption" color="text.secondary">{subtitle}</Typography>
-          )}
-        </Box>
-        {/* ไอคอนด้านขวา — มีพื้นสีอ่อนๆ */}
-        <Box
-          sx={{
-            bgcolor: bgColor || `${color}22`, // 22 = opacity 13% ใน hex
-            borderRadius: 2,
-            p: 1,
-            display: 'flex',
-            alignItems: 'center',
-            ml: 1,
-          }}
-        >
-          {icon}
-        </Box>
-      </Box>
-    </CardContent>
-  </Card>
+const Figure = ({ label, amount, note, color = 'text.primary' }) => (
+  <Box sx={{ py: 2, px: { xs: 0, md: 2.5 }, minWidth: 0 }}>
+    <Typography variant="body2" color="text.secondary">{label}</Typography>
+    <Typography sx={{ ...num, fontSize: { xs: 20, md: 22 }, fontWeight: 500, mt: 0.5 }} color={color} noWrap>
+      ฿{formatCurrency(amount)}
+    </Typography>
+    {note && <Typography variant="caption" color="text.secondary">{note}</Typography>}
+  </Box>
 );
 
 // =====================================================
-// BudgetProgress — Component แสดง Progress Bar การใช้งบ
-// Props: label, used (ใช้ไปแล้ว), budget (งบที่ตั้งไว้), color
+// EquationRow — หนึ่งบรรทัดของสมการ รายได้ − รายจ่าย = คงเหลือ
 // =====================================================
-const BudgetProgress = ({ label, used, budget, color }) => {
+const EquationRow = ({ label, value, color = 'text.primary', strong, total }) => (
+  <Box
+    sx={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      gap: 2,
+      py: 1,
+      // บรรทัดยอดรวม — เส้นคู่ใต้ตัวเลข แบบสมุดบัญชี
+      ...(total && { borderTop: 1, borderColor: 'ledger.ruleStrong', mt: 0.5 }),
+    }}
+  >
+    <Typography variant="body2" color={strong ? 'text.primary' : 'text.secondary'} fontWeight={strong ? 600 : 400}>
+      {label}
+    </Typography>
+    <Typography
+      sx={{
+        ...num,
+        fontSize: 15,
+        fontWeight: strong ? 600 : 400,
+        ...(total && { borderBottom: `3px double ${ledger.ink}`, pb: 0.25 }),
+      }}
+      color={color}
+    >
+      {value}
+    </Typography>
+  </Box>
+);
+
+// =====================================================
+// BudgetProgress — แถบการใช้งบของหนึ่งหมวด
+// Props: label, used (ใช้ไปแล้ว), budget (งบที่ตั้งไว้)
+// =====================================================
+const BudgetProgress = ({ label, used, budget }) => {
   // คำนวณ % การใช้งบ — Math.min ป้องกันเกิน 100%
   const pct = budget > 0 ? Math.min((used / budget) * 100, 100) : 0;
   const over = used > budget; // เกินงบหรือเปล่า
+  const near = !over && pct >= 85;
+  const tone = over ? 'error' : near ? 'warning' : 'primary';
   return (
-    <Box mb={1.5}>
-      <Box display="flex" justifyContent="space-between" mb={0.5}>
-        <Typography variant="body2">{label}</Typography>
-        {/* ตัวเลขใช้ไป/งบรวม — สีแดงถ้าเกิน */}
-        <Typography variant="body2" fontWeight={600} color={over ? 'error.main' : 'text.primary'}>
-          ฿{formatCurrency(used)} / ฿{formatCurrency(budget)}
+    <Box sx={{ py: 2, borderBottom: 1, borderColor: 'divider' }}>
+      <Box display="flex" justifyContent="space-between" alignItems="baseline" gap={2} mb={1} flexWrap="wrap">
+        <Typography variant="body1" fontWeight={500}>{label}</Typography>
+        <Typography sx={{ ...num, fontSize: 15 }}>
+          ฿{formatCurrency(used)} <Box component="span" color="text.secondary">/ ฿{formatCurrency(budget)}</Box>
         </Typography>
       </Box>
-      {/* Progress Bar — เปลี่ยนเป็น error (แดง) เมื่อเกินงบ */}
       <LinearProgress
         variant="determinate"
         value={pct}
-        color={over ? 'error' : color}
-        sx={{ height: 8, borderRadius: 4 }}
+        color={tone}
+        aria-label={`${label} ใช้ไป ${pct.toFixed(0)}%`}
+        sx={{ height: 4 }}
       />
-      {/* ข้อความใต้ bar */}
-      <Typography variant="caption" color={over ? 'error.main' : 'text.secondary'}>
+      <Typography variant="caption" color={over ? 'error.main' : near ? 'warning.main' : 'text.secondary'} sx={{ display: 'block', mt: 0.75 }}>
         {over ? `เกินงบ ฿${formatCurrency(used - budget)}` : `คงเหลือ ฿${formatCurrency(budget - used)}`}
-        {' '}({pct.toFixed(1)}%)
+        {' · '}{pct.toFixed(1)}%
       </Typography>
     </Box>
   );
@@ -104,22 +107,24 @@ const BudgetProgress = ({ label, used, budget, color }) => {
 
 // =====================================================
 // CustomTooltip — Tooltip แบบกำหนดเองสำหรับ BarChart
-// recharts จะส่ง active, payload, label มาให้อัตโนมัติ
 // =====================================================
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <Paper sx={{ p: 1.5 }}>
+    <Paper sx={{ p: 1.5, border: 1, borderColor: 'divider' }}>
       <Typography variant="body2" fontWeight={600}>{label}</Typography>
-      <Typography variant="body2" color="primary.main">
-        ฿{formatCurrency(payload[0].value)}
-      </Typography>
+      <Typography sx={{ ...num, fontSize: 14 }}>฿{formatCurrency(payload[0].value)}</Typography>
     </Paper>
   );
 };
 
-// สีแท่ง BarChart — ไล่จากอ่อนไปเข้ม (เดือนเก่า → ปัจจุบัน)
-const CHART_COLORS = ['#90CAF9', '#64B5F6', '#42A5F5', '#2196F3', '#1E88E5', '#1565C0'];
+// ProgressCell — แถบความคืบหน้าการผ่อน + %
+const ProgressCell = ({ pct }) => (
+  <Box display="flex" alignItems="center" gap={1}>
+    <LinearProgress variant="determinate" value={pct} sx={{ flexGrow: 1, height: 4 }} aria-label={`ชำระแล้ว ${pct.toFixed(0)}%`} />
+    <Typography variant="caption" sx={{ ...num, minWidth: 36, textAlign: 'right' }}>{pct.toFixed(0)}%</Typography>
+  </Box>
+);
 
 // =====================================================
 // Dashboard — Component หลักของหน้าแดชบอร์ด
@@ -135,7 +140,6 @@ export default function Dashboard() {
   const [error, setError] = useState('');
 
   // fetchData — ดึงข้อมูลจาก API ใหม่เมื่อ year/month เปลี่ยน
-  // useCallback → memorize function ไม่ให้สร้างใหม่ทุก render (เพิ่ม performance)
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -143,321 +147,226 @@ export default function Dashboard() {
       const res = await dashboardApi.get(year, month);
       setData(res.data);
     } catch {
-      setError('ไม่สามารถโหลดข้อมูลได้ กรุณาตรวจสอบว่า Backend รันอยู่ที่ port 5000');
+      setError('โหลดข้อมูลไม่ได้ — ตรวจว่า service FinanceApi ทำงานอยู่ และเครื่องนี้ต่อ Tailscale แล้ว');
     } finally {
       setLoading(false);
     }
-  }, [year, month]); // dependency array → รัน fetchData ใหม่เมื่อ year หรือ month เปลี่ยน
+  }, [year, month]);
 
-  // useEffect → เรียก fetchData ครั้งแรก และทุกครั้งที่ fetchData เปลี่ยน
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleMonthChange = (y, m) => { setYear(y); setMonth(m); };
 
   // แปลงข้อมูล MonthlyTrend เป็นรูปแบบที่ recharts ต้องการ
-  // name: ชื่อเดือนย่อ เช่น "พ.ค. 69"  |  รายจ่าย: ยอดรวม  |  fill: สีแท่ง
-  const chartData = data?.MonthlyTrend?.map((t, i) => ({
+  // แท่งของเดือนที่กำลังดูเป็นสี accent ที่เหลือเป็นสีเส้นเข้ม
+  const chartData = data?.MonthlyTrend?.map((t) => ({
     name: `${thaiShortMonths[t.MonthNumber]} ${String(t.Year + 543).slice(-2)}`,
     รายจ่าย: t.TotalExpenses,
-    fill: CHART_COLORS[i] ?? '#1565C0',
+    fill: t.MonthNumber === month && t.Year === year ? ledger.accent : ledger.ruleStrong,
   })) ?? [];
 
   const remaining = data ? data.Remaining : 0;
+  const positive = remaining >= 0;
 
   return (
     <Box>
-      {/* Header — ชื่อหน้า + ตัวเลือกเดือน */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} mb={3}>
-        <Typography variant="h5">แดชบอร์ด</Typography>
-        <MonthSelector year={year} month={month} onChange={handleMonthChange} />
-      </Box>
+      <PageHeader
+        title="แดชบอร์ด"
+        description={`ภาพรวมเดือน${thaiFullMonths[month]} ${year + 543}`}
+        actions={<MonthSelector year={year} month={month} onChange={handleMonthChange} />}
+      />
 
-      {/* แสดง error ถ้า backend ไม่ตอบ */}
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
       {loading ? (
-        // Loading spinner
-        <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>
+        <Box display="flex" justifyContent="center" py={8}>
+          <CircularProgress aria-label="กำลังโหลด" />
+        </Box>
       ) : !data ? null : (
-        <Grid container spacing={2.5}>
+        <>
+          {/* ── ตัวเลขหลัก: คงเหลือเดือนนี้ ── */}
+          <Box
+            component="section"
+            aria-labelledby="remaining-label"
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1.3fr) minmax(0, 1fr)' },
+              gap: { xs: 3, md: 6 },
+              alignItems: 'end',
+              mb: 4,
+            }}
+          >
+            <Box sx={{ minWidth: 0 }}>
+              <Typography id="remaining-label" variant="body1" color="text.secondary">
+                คงเหลือเดือนนี้
+              </Typography>
+              <Typography
+                sx={{
+                  ...num,
+                  fontSize: { xs: 40, sm: 52, md: 60 },
+                  fontWeight: 500,
+                  lineHeight: 1.1,
+                  letterSpacing: '-0.02em',
+                  mt: 0.5,
+                  overflowWrap: 'anywhere',
+                }}
+                color={positive ? 'text.primary' : 'error.main'}
+              >
+                {positive ? '' : '−'}฿{formatCurrency(Math.abs(remaining))}
+              </Typography>
+              <Typography variant="body2" color={positive ? 'success.main' : 'error.main'} sx={{ mt: 1, fontWeight: 500 }}>
+                {positive ? 'รายได้พอกับรายจ่ายเดือนนี้' : 'รายจ่ายเกินรายได้เดือนนี้'}
+              </Typography>
+            </Box>
 
-          {/* แถวที่ 1 — StatCard 4 ใบ */}
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="เงินเดือนสุทธิ"
-              amount={data.Salary}
-              subtitle="หลังหักประกันสังคม/กยศ."
-              icon={<AccountBalanceWalletIcon sx={{ color: 'primary.main' }} />}
-              color="primary.main"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="งบหนี้/ผ่อน (50%)"
-              amount={data.DebtBudget}
-              subtitle={`ใช้ไป ฿${formatCurrency(data.TotalDebtExpenses)}`}
-              icon={<CreditCardIcon sx={{ color: 'error.main' }} />}
-              color="error.main"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="งบประจำวัน (30%)"
-              amount={data.DailyBudget}
-              subtitle={`ใช้ไป ฿${formatCurrency(data.TotalDailyExpenses)}`}
-              icon={<ShoppingCartIcon sx={{ color: 'warning.main' }} />}
-              color="warning.main"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="เป้าเงินเก็บ (20%)"
-              amount={data.SavingsBudget}
-              subtitle="เป้าหมายต่อเดือน"
-              icon={<SavingsIcon sx={{ color: 'success.main' }} />}
-              color="success.main"
-            />
-          </Grid>
+            {/* สมการ รายได้ − รายจ่าย = คงเหลือ */}
+            <Box sx={{ minWidth: 0 }}>
+              <EquationRow label="เงินเดือนสุทธิ" value={`฿${formatCurrency(data.Salary)}`} />
+              <EquationRow
+                label={`รายจ่ายรวม · ${data.CurrentMonthExpenses?.length ?? 0} รายการ`}
+                value={`−฿${formatCurrency(data.TotalExpenses)}`}
+              />
+              <EquationRow
+                label="คงเหลือ"
+                value={`${positive ? '' : '−'}฿${formatCurrency(Math.abs(remaining))}`}
+                color={positive ? 'text.primary' : 'error.main'}
+                strong
+                total
+              />
+            </Box>
+          </Box>
 
-          {/* แถวที่ 2 — สรุปรายจ่าย, เงินคงเหลือ, ยอดผ่อน */}
-          <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ p: 2.5 }}>
-                <Typography variant="subtitle1" fontWeight={600} mb={1.5}>
-                  สรุปรายจ่ายเดือนนี้
-                </Typography>
-                <Typography variant="h4" fontWeight={700} color="error.main" mb={0.5}>
-                  ฿{formatCurrency(data.TotalExpenses)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" mb={2}>
-                  รวมทั้งสิ้น {data.CurrentMonthExpenses?.length ?? 0} รายการ
-                </Typography>
-                {/* Progress Bar ของแต่ละหมวด */}
-                <BudgetProgress
-                  label="หนี้/ผ่อน"
-                  used={data.TotalDebtExpenses}
-                  budget={data.DebtBudget}
-                  color="error"
-                />
-                <BudgetProgress
-                  label="ประจำวัน"
-                  used={data.TotalDailyExpenses}
-                  budget={data.DailyBudget}
-                  color="warning"
-                />
-              </CardContent>
-            </Card>
-          </Grid>
+          {/* ── แถวตัวเลขรอง — คั่นด้วยเส้นแนวตั้งบน desktop ── */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' },
+              columnGap: { xs: 2, md: 0 },
+              borderTop: 1,
+              borderBottom: 1,
+              borderColor: 'divider',
+              mb: 5,
+              '& > *:not(:first-of-type)': { borderLeft: { md: 1 }, borderColor: { md: 'divider' } },
+            }}
+          >
+            <Figure label="งบหนี้/ผ่อน · 50%" amount={data.DebtBudget} note={`ใช้ไป ฿${formatCurrency(data.TotalDebtExpenses)}`} />
+            <Figure label="งบประจำวัน · 30%" amount={data.DailyBudget} note={`ใช้ไป ฿${formatCurrency(data.TotalDailyExpenses)}`} />
+            <Figure label="เป้าเงินเก็บ · 20%" amount={data.SavingsBudget} note="เป้าหมายต่อเดือน" color="success.main" />
+            <Figure
+              label="ผ่อนชำระเดือนนี้"
+              amount={data.TotalInstallmentsMonthly}
+              note={`${data.ActiveInstallments?.length ?? 0} รายการที่ยังผ่อนอยู่`}
+            />
+          </Box>
 
-          {/* เงินคงเหลือ */}
-          <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ p: 2.5 }}>
-                <Typography variant="subtitle1" fontWeight={600} mb={1.5}>
-                  เงินคงเหลือ
-                </Typography>
-                {/* สีเขียวถ้าเหลือ, แดงถ้าขาด */}
-                <Typography
-                  variant="h4"
-                  fontWeight={700}
-                  color={remaining >= 0 ? 'success.main' : 'error.main'}
-                  mb={0.5}
-                >
-                  {remaining < 0 ? '-' : ''}฿{formatCurrency(Math.abs(remaining))}
-                </Typography>
-                <Chip
-                  label={remaining >= 0 ? 'เงินพอใช้' : 'เงินไม่พอ!'}
-                  color={remaining >= 0 ? 'success' : 'error'}
-                  size="small"
-                  sx={{ mb: 2 }}
-                />
-                {/* ตาราง รายได้ - รายจ่าย = คงเหลือ */}
-                <Box>
-                  <Box display="flex" justifyContent="space-between">
-                    <Typography variant="body2" color="text.secondary">รายได้</Typography>
-                    <Typography variant="body2" fontWeight={600}>฿{formatCurrency(data.Salary)}</Typography>
-                  </Box>
-                  <Box display="flex" justifyContent="space-between">
-                    <Typography variant="body2" color="text.secondary">รายจ่ายรวม</Typography>
-                    <Typography variant="body2" fontWeight={600} color="error.main">
-                      -฿{formatCurrency(data.TotalExpenses)}
-                    </Typography>
-                  </Box>
-                  <Box display="flex" justifyContent="space-between" mt={0.5} pt={0.5} borderTop="1px solid #eee">
-                    <Typography variant="body2" fontWeight={600}>คงเหลือ</Typography>
-                    <Typography variant="body2" fontWeight={700} color={remaining >= 0 ? 'success.main' : 'error.main'}>
-                      ฿{formatCurrency(remaining)}
-                    </Typography>
-                  </Box>
+          {/* ── การใช้งบ + แนวโน้ม ── */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1fr) minmax(0, 1.4fr)' },
+              gap: { xs: 0, md: 6 },
+            }}
+          >
+            <Section title="การใช้งบเดือนนี้">
+              <Box sx={{ borderTop: 1, borderColor: 'ledger.ruleStrong' }}>
+                <BudgetProgress label="หนี้/ผ่อน" used={data.TotalDebtExpenses} budget={data.DebtBudget} />
+                <BudgetProgress label="ประจำวัน" used={data.TotalDailyExpenses} budget={data.DailyBudget} />
+              </Box>
+            </Section>
+
+            <Section title="แนวโน้มรายจ่าย 6 เดือน">
+              {chartData.every((d) => d.รายจ่าย === 0) ? (
+                <Box py={4} sx={{ borderTop: 1, borderColor: 'ledger.ruleStrong' }}>
+                  <Typography color="text.secondary">ยังไม่มีข้อมูลรายจ่ายในช่วงนี้</Typography>
                 </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* ยอดผ่อนชำระเดือนนี้ */}
-          <Grid item xs={12} sm={12} md={4}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ p: 2.5 }}>
-                <Typography variant="subtitle1" fontWeight={600} mb={1.5}>
-                  ยอดผ่อนชำระเดือนนี้
-                </Typography>
-                <Typography variant="h4" fontWeight={700} color="primary.main" mb={0.5}>
-                  ฿{formatCurrency(data.TotalInstallmentsMonthly)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" mb={1.5}>
-                  {data.ActiveInstallments?.length ?? 0} รายการที่ยังผ่อนอยู่
-                </Typography>
-                {/* แสดงรายการผ่อน 3 รายการแรก */}
-                {data.ActiveInstallments?.slice(0, 3).map((inst) => (
-                  <Box key={inst.Id} display="flex" justifyContent="space-between" mb={0.5}>
-                    <Typography variant="body2" noWrap sx={{ maxWidth: '65%' }}>{inst.Name}</Typography>
-                    <Typography variant="body2" fontWeight={600}>฿{formatCurrency(inst.MonthlyAmount)}</Typography>
-                  </Box>
-                ))}
-                {/* ถ้ามีมากกว่า 3 รายการ แสดงข้อความ "+N รายการอื่น" */}
-                {(data.ActiveInstallments?.length ?? 0) > 3 && (
-                  <Typography variant="caption" color="text.secondary">
-                    +{data.ActiveInstallments.length - 3} รายการอื่น
-                  </Typography>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* แถวที่ 3 — BarChart แนวโน้ม 6 เดือน */}
-          <Grid item xs={12}>
-            <Card>
-              <CardContent sx={{ p: 2.5 }}>
-                <Typography variant="subtitle1" fontWeight={600} mb={2}>
-                  แนวโน้มรายจ่าย 6 เดือนล่าสุด
-                </Typography>
-                {/* ถ้าทุกเดือนเป็น 0 แสดงข้อความแทน chart */}
-                {chartData.every((d) => d.รายจ่าย === 0) ? (
-                  <Box py={4} textAlign="center">
-                    <Typography color="text.secondary">ยังไม่มีข้อมูลรายจ่าย</Typography>
-                  </Box>
-                ) : (
-                  // ResponsiveContainer → ปรับขนาด chart ตามขนาด container อัตโนมัติ
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      {/* XAxis → แกนนอน (ชื่อเดือน) */}
-                      <XAxis dataKey="name" tick={{ fontSize: 13, fontFamily: 'Sarabun' }} />
-                      {/* YAxis → แกนตั้ง (ยอดเงิน) ใช้ formatCurrencyShort ย่อตัวเลข */}
+              ) : (
+                <Box sx={{ borderTop: 1, borderColor: 'ledger.ruleStrong', pt: 2 }}>
+                  <ResponsiveContainer width="100%" height={240}>
+                    <BarChart data={chartData} margin={{ top: 5, right: 4, left: 0, bottom: 0 }}>
+                      <CartesianGrid vertical={false} stroke={ledger.rule} />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fontSize: 12, fontFamily: fonts.body, fill: ledger.muted }}
+                        axisLine={{ stroke: ledger.ruleStrong }}
+                        tickLine={false}
+                      />
                       <YAxis
                         tickFormatter={formatCurrencyShort}
-                        tick={{ fontSize: 12 }}
-                        width={60}
+                        tick={{ fontSize: 12, fontFamily: fonts.mono, fill: ledger.muted }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={52}
                       />
-                      <Tooltip content={<CustomTooltip />} />
-                      {/* Bar → แท่งกราฟ radius=[6,6,0,0] = มุมบนโค้ง */}
-                      <Bar dataKey="รายจ่าย" radius={[6, 6, 0, 0]} maxBarSize={60}>
-                        {/* Cell → กำหนดสีแต่ละแท่งแยกกัน */}
+                      <Tooltip content={<CustomTooltip />} cursor={{ fill: ledger.paper2 }} />
+                      <Bar dataKey="รายจ่าย" radius={[2, 2, 0, 0]} maxBarSize={44}>
                         {chartData.map((entry, index) => (
                           <Cell key={index} fill={entry.fill} />
                         ))}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
+                </Box>
+              )}
+            </Section>
+          </Box>
 
-          {/* แถวที่ 4 — ตารางรายการผ่อนที่ยังค้างอยู่ (แสดงเมื่อมีข้อมูล) */}
+          {/* ── ตารางรายการผ่อนที่ยังค้างอยู่ (แสดงเมื่อมีข้อมูล) ── */}
           {(data.ActiveInstallments?.length ?? 0) > 0 && (
-            <Grid item xs={12}>
-              <Card>
-                <CardContent sx={{ p: 2.5 }}>
-                  <Typography variant="subtitle1" fontWeight={600} mb={2}>
-                    รายการผ่อนที่ยังค้างอยู่
-                  </Typography>
-                  {isMobile ? (
-                    // ─── มุมมองมือถือ: การ์ดแทนตาราง ───
-                    <Box>
+            <Section title="รายการผ่อนที่ยังค้างอยู่" aside={`${data.ActiveInstallments.length} รายการ`} sx={{ mb: 0 }}>
+              {isMobile ? (
+                <MobileDataList>
+                  {data.ActiveInstallments.map((inst) => {
+                    const pct = inst.TotalInstallments > 0
+                      ? (inst.PaidInstallments / inst.TotalInstallments) * 100 : 0;
+                    return (
+                      <MobileDataCard
+                        key={inst.Id}
+                        title={inst.Name}
+                        amount={`฿${formatCurrency(inst.MonthlyAmount)}`}
+                        rows={[
+                          { label: 'งวด (ชำระ/รวม)', value: `${inst.PaidInstallments}/${inst.TotalInstallments}` },
+                          { label: 'ยอดคงเหลือ', value: `฿${formatCurrency(inst.RemainingAmount)}` },
+                        ]}
+                        footer={<ProgressCell pct={pct} />}
+                      />
+                    );
+                  })}
+                </MobileDataList>
+              ) : (
+                <TableContainer sx={{ borderTop: 1, borderColor: 'ledger.ruleStrong' }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>ชื่อรายการ</TableCell>
+                        <TableCell align="center">งวด (ชำระ/รวม)</TableCell>
+                        <TableCell align="right">ต่องวด</TableCell>
+                        <TableCell align="right">ยอดคงเหลือ</TableCell>
+                        <TableCell sx={{ width: 200 }}>ความคืบหน้า</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
                       {data.ActiveInstallments.map((inst) => {
                         const pct = inst.TotalInstallments > 0
                           ? (inst.PaidInstallments / inst.TotalInstallments) * 100 : 0;
                         return (
-                          <MobileDataCard
-                            key={inst.Id}
-                            title={inst.Name}
-                            amount={`฿${formatCurrency(inst.MonthlyAmount)}`}
-                            rows={[
-                              {
-                                label: 'งวด (ชำระ/รวม)',
-                                value: `${inst.PaidInstallments}/${inst.TotalInstallments}`,
-                              },
-                              {
-                                label: 'คงเหลือ',
-                                value: `฿${formatCurrency(inst.RemainingAmount)}`,
-                                color: 'error.main',
-                              },
-                            ]}
-                            footer={
-                              <Box display="flex" alignItems="center" gap={1}>
-                                <LinearProgress
-                                  variant="determinate"
-                                  value={pct}
-                                  sx={{ flexGrow: 1, height: 6, borderRadius: 3 }}
-                                  color="primary"
-                                />
-                                <Typography variant="caption">{pct.toFixed(0)}%</Typography>
-                              </Box>
-                            }
-                          />
+                          <TableRow key={inst.Id} hover>
+                            <TableCell>{inst.Name}</TableCell>
+                            <TableCell align="center" sx={num}>
+                              {inst.PaidInstallments}/{inst.TotalInstallments}
+                            </TableCell>
+                            <TableCell align="right" sx={num}>฿{formatCurrency(inst.MonthlyAmount)}</TableCell>
+                            <TableCell align="right" sx={num}>฿{formatCurrency(inst.RemainingAmount)}</TableCell>
+                            <TableCell><ProgressCell pct={pct} /></TableCell>
+                          </TableRow>
                         );
                       })}
-                    </Box>
-                  ) : (
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow sx={{ '& th': { fontWeight: 700, bgcolor: '#F5F5F5' } }}>
-                          <TableCell>ชื่อรายการ</TableCell>
-                          <TableCell align="center">งวด (ชำระ/รวม)</TableCell>
-                          <TableCell align="right">ต่องวด</TableCell>
-                          <TableCell align="right">คงเหลือ</TableCell>
-                          <TableCell>ความคืบหน้า</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {data.ActiveInstallments.map((inst) => {
-                          // คำนวณ % ความคืบหน้า
-                          const pct = inst.TotalInstallments > 0
-                            ? (inst.PaidInstallments / inst.TotalInstallments) * 100 : 0;
-                          return (
-                            <TableRow key={inst.Id} hover>
-                              <TableCell>{inst.Name}</TableCell>
-                              <TableCell align="center">
-                                {inst.PaidInstallments}/{inst.TotalInstallments}
-                              </TableCell>
-                              <TableCell align="right">฿{formatCurrency(inst.MonthlyAmount)}</TableCell>
-                              <TableCell align="right">฿{formatCurrency(inst.RemainingAmount)}</TableCell>
-                              <TableCell sx={{ minWidth: 120 }}>
-                                <Box display="flex" alignItems="center" gap={1}>
-                                  <LinearProgress
-                                    variant="determinate"
-                                    value={pct}
-                                    sx={{ flexGrow: 1, height: 6, borderRadius: 3 }}
-                                    color="primary"
-                                  />
-                                  <Typography variant="caption">{pct.toFixed(0)}%</Typography>
-                                </Box>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Section>
           )}
-
-        </Grid>
+        </>
       )}
     </Box>
   );

@@ -1,0 +1,19 @@
+[
+  {
+    "date": "2026-10-21",
+    "scope": "app",
+    "verb": "redesign",
+    "genre": "editorial",
+    "theme": "custom: ledger (design.md)",
+    "pages": {
+      "Dashboard": "stat-led",
+      "MonthlySummary": "catalogue",
+      "Expenses": "ledger-table",
+      "Installments": "ledger-table",
+      "SalaryHistory": "ledger-table",
+      "Budget": "long-document"
+    },
+    "nav": "side-rail",
+    "critique": "P4 H4 E4 S4 R5 V4"
+  }
+]

@@ -5,12 +5,13 @@
 //   - เพิ่ม/แก้ไข/ลบรายการผ่อน (Dialog + ConfirmDialog)
 //   - Progress Bar แสดงความคืบหน้าการผ่อน
 //   - Chip "ครบกำหนดเดือนนี้" — คำนวณจาก StartDate + PaidInstallments
-//   - Summary cards (ยอดรวมต่อเดือน, ยอดคงเหลือ, จำนวนรายการ)
+//   - แถบตัวเลขสรุป (ยอดรวมต่อเดือน, ยอดคงเหลือ, จำนวนรายการ)
+// Hallmark · genre: editorial · macrostructure: ledger-table · design-system: design.md · designed-as-app
 // ========================================================
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Alert, Box, Button, Card, CardContent, Chip, CircularProgress,
+  Alert, Box, Button, Chip, CircularProgress,
   DialogActions, DialogContent,
   Grid, IconButton, LinearProgress, Snackbar, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, TextField,
@@ -24,9 +25,11 @@ import PendingIcon from '@mui/icons-material/Pending';
 import { installmentApi } from '../api/financeApi';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ResponsiveDialog from '../components/ResponsiveDialog';
-import MobileDataCard from '../components/MobileDataCard';
+import MobileDataCard, { MobileDataList } from '../components/MobileDataCard';
 import AddFab from '../components/AddFab';
+import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
+import { num } from '../theme';
 import { formatCurrency } from '../utils/formatters';
 
 // ค่าเริ่มต้นของฟอร์ม dialog
@@ -136,7 +139,7 @@ function InstallmentDialog({ open, installment, onClose, onSaved }) {
             <TextField label="จำนวนเงินต่องวด (บาท) *" fullWidth type="number"
               value={form.MonthlyAmount} onChange={set('MonthlyAmount')}
               error={!!errors.MonthlyAmount} helperText={errors.MonthlyAmount}
-              inputProps={{ min: 0, step: '0.01' }} />
+              inputProps={{ min: 0, step: '0.01', inputMode: 'decimal' }} />
           </Grid>
           {/* วันที่เริ่ม (ใช้คำนวณ isThisMonth) */}
           <Grid item xs={12} sm={6}>
@@ -151,21 +154,21 @@ function InstallmentDialog({ open, installment, onClose, onSaved }) {
           {/* Preview box — แสดงยอดรวม/ชำระแล้ว/คงเหลือ (แสดงเมื่อกรอกข้อมูลครบ) */}
           {totalAmt > 0 && (
             <Grid item xs={12}>
-              <Box sx={{ bgcolor: '#F0F4FF', borderRadius: 2, p: 1.5 }}>
+              <Box sx={{ bgcolor: 'ledger.paper2', borderTop: 1, borderBottom: 1, borderColor: 'divider', p: 1.5 }}>
                 <Grid container spacing={1}>
                   <Grid item xs={4} textAlign="center">
                     <Typography variant="caption" color="text.secondary">ยอดรวมทั้งหมด</Typography>
-                    <Typography variant="body2" fontWeight={700}>฿{formatCurrency(totalAmt)}</Typography>
+                    <Typography variant="body2" fontWeight={600} sx={num}>฿{formatCurrency(totalAmt)}</Typography>
                   </Grid>
                   <Grid item xs={4} textAlign="center">
                     <Typography variant="caption" color="text.secondary">ชำระแล้ว</Typography>
-                    <Typography variant="body2" fontWeight={700} color="success.main">
+                    <Typography variant="body2" fontWeight={600} sx={num} color="success.main">
                       ฿{formatCurrency(totalAmt - remaining)}
                     </Typography>
                   </Grid>
                   <Grid item xs={4} textAlign="center">
                     <Typography variant="caption" color="text.secondary">คงเหลือ</Typography>
-                    <Typography variant="body2" fontWeight={700} color="error.main">
+                    <Typography variant="body2" fontWeight={600} sx={num} color="error.main">
                       ฿{formatCurrency(remaining)}
                     </Typography>
                   </Grid>
@@ -256,82 +259,110 @@ export default function Installments() {
     return monthsElapsed >= 0 && inst.PaidInstallments <= monthsElapsed;
   };
 
+  // ProgressCell — แถบความคืบหน้า + % (ใช้ทั้งตารางและมือถือ)
+  const ProgressCell = ({ inst, pct }) => (
+    <Box display="flex" alignItems="center" gap={1}>
+      <LinearProgress
+        variant="determinate"
+        value={pct}
+        aria-label={`ความคืบหน้า ${inst.Name}`}
+        sx={{ flexGrow: 1 }}
+        color={inst.IsCompleted ? 'success' : 'primary'}
+      />
+      <Typography variant="caption" sx={{ ...num, minWidth: 36, textAlign: 'right' }}>
+        {pct.toFixed(0)}%
+      </Typography>
+    </Box>
+  );
+
+  // StatusLabel — ข้อความสถานะ (ชำระครบ = หมึกจาง + ไอคอน ไม่ใช้ opacity ทั้งแถว)
+  const StatusLabel = ({ inst }) => inst.IsCompleted ? (
+    <Box component="span" display="inline-flex" alignItems="center" gap={0.5} sx={{ color: 'success.main', fontSize: 13, fontWeight: 500 }}>
+      <CheckCircleIcon sx={{ fontSize: 16 }} /> ชำระครบ
+    </Box>
+  ) : (
+    <Box component="span" display="inline-flex" alignItems="center" gap={0.5} sx={{ color: 'primary.main', fontSize: 13, fontWeight: 500 }}>
+      <PendingIcon sx={{ fontSize: 16 }} /> กำลังผ่อน
+    </Box>
+  );
+
+  const openAdd = () => { setEditTarget(null); setDialogOpen(true); };
+
   return (
     <Box>
-      {/* Header — ชื่อหน้า + Toggle กรอง + ปุ่มเพิ่ม */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} mb={3}>
-        <Typography variant="h5">รายการผ่อนชำระ</Typography>
-        <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-          {/* ToggleButtonGroup — เลือก filter exclusive=เลือกได้ทีละอัน */}
-          <ToggleButtonGroup
-            value={filter} exclusive
-            onChange={(_, v) => { if (v) setFilter(v); }} // ป้องกัน v=null เมื่อกดซ้ำ
-            size="small"
-          >
-            <ToggleButton value="active">กำลังผ่อน</ToggleButton>
-            <ToggleButton value="all">ทั้งหมด</ToggleButton>
-          </ToggleButtonGroup>
-          {/* บนมือถือใช้ปุ่มลอย (AddFab) ด้านล่างแทน */}
-          {!isMobile && (
-            <Button variant="contained" startIcon={<AddIcon />}
-              onClick={() => { setEditTarget(null); setDialogOpen(true); }}>
-              เพิ่มรายการผ่อน
-            </Button>
-          )}
-        </Box>
-      </Box>
+      <PageHeader
+        title="รายการผ่อนชำระ"
+        description="งวดที่จ่ายแล้ว ยอดคงเหลือ และรายการที่ถึงกำหนดเดือนนี้"
+        actions={
+          <>
+            {/* ToggleButtonGroup — เลือก filter exclusive=เลือกได้ทีละอัน */}
+            <ToggleButtonGroup
+              value={filter} exclusive
+              onChange={(_, v) => { if (v) setFilter(v); }} // ป้องกัน v=null เมื่อกดซ้ำ
+              size="small"
+              aria-label="กรองรายการผ่อน"
+            >
+              <ToggleButton value="active">กำลังผ่อน</ToggleButton>
+              <ToggleButton value="all">ทั้งหมด</ToggleButton>
+            </ToggleButtonGroup>
+            {/* บนมือถือใช้ปุ่มลอย (AddFab) ด้านล่างแทน */}
+            {!isMobile && (
+              <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>
+                เพิ่มรายการผ่อน
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      {/* Summary cards — แสดงเมื่อมีรายการที่กำลังผ่อนอยู่ */}
+      {/* แถบตัวเลขสรุป — แสดงเมื่อมีรายการที่กำลังผ่อนอยู่ */}
       {!loading && activeList.length > 0 && (
-        // บนมือถือ การ์ดสรุป 3 ใบเต็มความกว้างจะดันรายการผ่อนตกไปไกล
-        // จึงย่อ padding/ขนาดตัวเลข และวางเป็นแถวเดียว (label อยู่ในบรรทัดเดียวกับค่า)
-        <Grid container spacing={{ xs: 1, sm: 2 }} sx={{ mb: 2 }}>
+        <Box
+          component="dl"
+          sx={{
+            m: 0, mb: 4,
+            display: 'grid',
+            gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(3, minmax(0, 1fr))' },
+            borderTop: 1, borderBottom: 1, borderColor: 'divider',
+            '& > div:not(:first-of-type)': {
+              borderTop: { xs: 1, sm: 0 }, borderLeft: { sm: 1 }, borderColor: 'divider',
+            },
+          }}
+        >
           {[
-            { label: 'ยอดผ่อนรวมต่อเดือน', value: `฿${formatCurrency(totalMonthly)}`, bg: 'primary.main' },
-            { label: 'ยอดผ่อนที่เหลือทั้งหมด', value: `฿${formatCurrency(totalRemaining)}`, bg: 'error.main' },
-            { label: 'รายการที่กำลังผ่อน', value: `${activeList.length} รายการ`, bg: 'success.main' },
+            { label: 'ยอดผ่อนรวมต่อเดือน', value: `฿${formatCurrency(totalMonthly)}` },
+            { label: 'ยอดผ่อนที่เหลือทั้งหมด', value: `฿${formatCurrency(totalRemaining)}`, color: 'error.main' },
+            { label: 'รายการที่กำลังผ่อน', value: `${activeList.length} รายการ` },
           ].map((s) => (
-            <Grid item xs={12} sm={4} key={s.label}>
-              <Card sx={{ bgcolor: s.bg, color: 'white' }}>
-                <CardContent
-                  sx={{
-                    py: { xs: 1.25, sm: 2 },
-                    '&:last-child': { pb: { xs: 1.25, sm: 2 } },
-                    // มือถือ: label ซ้าย / ค่าขวา ในบรรทัดเดียว
-                    display: { xs: 'flex', sm: 'block' },
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 1,
-                  }}
-                >
-                  <Typography variant="body2" sx={{ opacity: 0.8 }}>{s.label}</Typography>
-                  <Typography fontWeight={700} sx={{ fontSize: { xs: '1.1rem', sm: '1.5rem' }, whiteSpace: 'nowrap' }}>
-                    {s.value}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
+            <Box key={s.label} sx={{
+              py: { xs: 1.25, sm: 2 }, px: { xs: 0, sm: 2.5 }, minWidth: 0,
+              // มือถือ: label ซ้าย / ค่าขวา ในบรรทัดเดียว ไม่ดันรายการตกไปไกล
+              display: { xs: 'flex', sm: 'block' }, justifyContent: 'space-between', alignItems: 'baseline', gap: 1,
+            }}>
+              <Typography component="dt" variant="body2" color="text.secondary">{s.label}</Typography>
+              <Typography component="dd" sx={{ ...num, m: 0, mt: { sm: 0.5 }, fontSize: { xs: 17, sm: 22 }, fontWeight: 500, whiteSpace: 'nowrap' }}
+                color={s.color ?? 'text.primary'}>
+                {s.value}
+              </Typography>
+            </Box>
           ))}
-        </Grid>
+        </Box>
       )}
 
-      {/* ตารางรายการผ่อน */}
-      <Card>
-        <CardContent sx={{ p: 0 }}>
+      <Box component="section" aria-label="รายการผ่อน">
           {loading ? (
-            <Box display="flex" justifyContent="center" py={6}><CircularProgress /></Box>
+            <Box display="flex" justifyContent="center" py={6}><CircularProgress aria-label="กำลังโหลด" /></Box>
           ) : list.length === 0 ? (
             // Empty state
-            <Box py={6} textAlign="center">
+            <Box py={6} textAlign="center" sx={{ borderTop: 1, borderBottom: 1, borderColor: 'divider' }}>
               <Typography color="text.secondary" mb={2}>ยังไม่มีรายการผ่อนชำระ</Typography>
-              <Button variant="outlined" startIcon={<AddIcon />}
-                onClick={() => { setEditTarget(null); setDialogOpen(true); }}>
+              <Button variant="outlined" startIcon={<AddIcon />} onClick={openAdd}>
                 เพิ่มรายการผ่อนแรก
               </Button>
             </Box>
           ) : isMobile ? (
-            // ─── มุมมองมือถือ: การ์ดหนึ่งใบต่อหนึ่งรายการผ่อน ───
-            <Box sx={{ p: 1.5 }}>
+            // ─── มุมมองมือถือ: หนึ่งบรรทัดต่อหนึ่งรายการผ่อน ───
+            <MobileDataList>
               {list.map((inst) => {
                 const pct = inst.TotalInstallments > 0
                   ? (inst.PaidInstallments / inst.TotalInstallments) * 100 : 0;
@@ -340,23 +371,18 @@ export default function Installments() {
                 return (
                   <MobileDataCard
                     key={inst.Id}
-                    sx={{
-                      opacity: inst.IsCompleted ? 0.55 : 1,
-                      bgcolor: dueThisMonth ? 'rgba(255, 167, 38, 0.08)' : 'inherit',
-                    }}
+                    sx={{ bgcolor: dueThisMonth ? 'ledger.warningSoft' : 'transparent' }}
                     title={inst.Name}
                     titleChips={
                       <>
-                        {inst.IsCompleted
-                          ? <Chip icon={<CheckCircleIcon />} label="ชำระครบ" color="success" size="small" />
-                          : <Chip icon={<PendingIcon />} label="กำลังผ่อน" color="primary" size="small" variant="outlined" />}
+                        <StatusLabel inst={inst} />
                         {dueThisMonth && (
                           <Chip label="ครบกำหนดเดือนนี้" color="warning" size="small" />
                         )}
                       </>
                     }
                     amount={`฿${formatCurrency(inst.MonthlyAmount)}`}
-                    amountColor="text.primary"
+                    amountColor={inst.IsCompleted ? 'text.secondary' : 'text.primary'}
                     rows={[
                       {
                         label: 'งวด',
@@ -370,29 +396,17 @@ export default function Installments() {
                       {
                         label: 'คงเหลือ',
                         value: `฿${formatCurrency(inst.RemainingAmount)}`,
-                        color: inst.IsCompleted ? 'text.disabled' : 'error.main',
+                        color: inst.IsCompleted ? 'text.secondary' : 'error.main',
                       },
                     ]}
-                    footer={
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <LinearProgress
-                          variant="determinate"
-                          value={pct}
-                          sx={{ flexGrow: 1, height: 8, borderRadius: 4 }}
-                          color={inst.IsCompleted || pct > 75 ? 'success' : 'primary'}
-                        />
-                        <Typography variant="caption" sx={{ minWidth: 34 }}>
-                          {pct.toFixed(0)}%
-                        </Typography>
-                      </Box>
-                    }
+                    footer={<ProgressCell inst={inst} pct={pct} />}
                     actions={
                       <>
-                        <IconButton color="primary"
+                        <IconButton color="primary" aria-label={`แก้ไข ${inst.Name}`}
                           onClick={() => { setEditTarget(inst); setDialogOpen(true); }}>
                           <EditIcon />
                         </IconButton>
-                        <IconButton color="error" onClick={() => setDeleteId(inst.Id)}>
+                        <IconButton color="error" aria-label={`ลบ ${inst.Name}`} onClick={() => setDeleteId(inst.Id)}>
                           <DeleteIcon />
                         </IconButton>
                       </>
@@ -400,12 +414,12 @@ export default function Installments() {
                   />
                 );
               })}
-            </Box>
+            </MobileDataList>
           ) : (
-            <TableContainer>
+            <TableContainer sx={{ borderTop: 1, borderColor: 'ledger.ruleStrong' }}>
               <Table>
                 <TableHead>
-                  <TableRow sx={{ '& th': { fontWeight: 700, bgcolor: '#F5F5F5' } }}>
+                  <TableRow>
                     <TableCell>ชื่อรายการ</TableCell>
                     <TableCell align="center">งวด</TableCell>
                     <TableCell align="right">ต่องวด</TableCell>
@@ -422,20 +436,17 @@ export default function Installments() {
                     const pct = inst.TotalInstallments > 0
                       ? (inst.PaidInstallments / inst.TotalInstallments) * 100 : 0;
                     const dueThisMonth = isThisMonth(inst); // ครบกำหนดเดือนนี้?
+                    // ชำระครบ → หมึกจาง (สี muted ที่ผ่าน contrast) แทน opacity ทั้งแถว
+                    const ink = inst.IsCompleted ? 'text.secondary' : 'text.primary';
 
                     return (
                       <TableRow
                         key={inst.Id}
                         hover
-                        sx={{
-                          // รายการชำระครบแล้ว → โปร่งใส 55%
-                          opacity: inst.IsCompleted ? 0.55 : 1,
-                          // ครบกำหนดเดือนนี้ → พื้นส้มอ่อน
-                          bgcolor: dueThisMonth ? 'rgba(255, 167, 38, 0.08)' : 'inherit',
-                        }}
+                        sx={{ bgcolor: dueThisMonth ? 'ledger.warningSoft' : 'inherit', '& td': { color: ink } }}
                       >
                         <TableCell>
-                          <Box display="flex" alignItems="center" gap={1}>
+                          <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
                             {inst.Name}
                             {/* Chip เตือนเมื่อถึงกำหนดเดือนนี้ */}
                             {dueThisMonth && (
@@ -445,54 +456,34 @@ export default function Installments() {
                         </TableCell>
                         {/* งวด ชำระ/รวม และงวดที่เหลือ */}
                         <TableCell align="center">
-                          <Typography variant="body2">
+                          <Typography variant="body2" sx={num}>
                             {inst.PaidInstallments}/{inst.TotalInstallments}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             เหลือ {inst.RemainingInstallments} งวด
                           </Typography>
                         </TableCell>
-                        <TableCell align="right">฿{formatCurrency(inst.MonthlyAmount)}</TableCell>
+                        <TableCell align="right" sx={num}>฿{formatCurrency(inst.MonthlyAmount)}</TableCell>
                         {/* ยอดชำระแล้ว (PaidAmount จาก computed property) */}
-                        <TableCell align="right" sx={{ color: 'success.main' }}>
+                        <TableCell align="right" sx={{ ...num, '&&': { color: 'success.main' } }}>
                           ฿{formatCurrency(inst.PaidAmount)}
                         </TableCell>
                         {/* ยอดคงเหลือ (RemainingAmount จาก computed property) */}
-                        <TableCell align="right" sx={{ color: inst.IsCompleted ? 'text.disabled' : 'error.main' }}>
+                        <TableCell align="right" sx={{ ...num, '&&': { color: inst.IsCompleted ? 'text.secondary' : 'error.main' } }}>
                           ฿{formatCurrency(inst.RemainingAmount)}
                         </TableCell>
-                        {/* Progress Bar — เปลี่ยนสีเป็น success เมื่อ >75% หรือชำระครบ */}
-                        <TableCell>
-                          <Box display="flex" alignItems="center" gap={1}>
-                            <LinearProgress
-                              variant="determinate"
-                              value={pct}
-                              sx={{ flexGrow: 1, height: 8, borderRadius: 4 }}
-                              color={inst.IsCompleted ? 'success' : pct > 75 ? 'success' : 'primary'}
-                            />
-                            <Typography variant="caption" sx={{ minWidth: 34 }}>
-                              {pct.toFixed(0)}%
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                        {/* Chip สถานะ */}
-                        <TableCell align="center">
-                          {inst.IsCompleted ? (
-                            <Chip icon={<CheckCircleIcon />} label="ชำระครบ" color="success" size="small" />
-                          ) : (
-                            <Chip icon={<PendingIcon />} label="กำลังผ่อน" color="primary" size="small" variant="outlined" />
-                          )}
-                        </TableCell>
+                        <TableCell><ProgressCell inst={inst} pct={pct} /></TableCell>
+                        <TableCell align="center"><StatusLabel inst={inst} /></TableCell>
                         {/* ปุ่ม แก้ไข / ลบ */}
-                        <TableCell align="center">
+                        <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
                           <Tooltip title="แก้ไข">
-                            <IconButton size="small" color="primary"
+                            <IconButton size="small" color="primary" aria-label={`แก้ไข ${inst.Name}`}
                               onClick={() => { setEditTarget(inst); setDialogOpen(true); }}>
                               <EditIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="ลบ">
-                            <IconButton size="small" color="error"
+                            <IconButton size="small" color="error" aria-label={`ลบ ${inst.Name}`}
                               onClick={() => setDeleteId(inst.Id)}>
                               <DeleteIcon fontSize="small" />
                             </IconButton>
@@ -505,8 +496,7 @@ export default function Installments() {
               </Table>
             </TableContainer>
           )}
-        </CardContent>
-      </Card>
+      </Box>
 
       {/* ปุ่มลอยเพิ่มรายการผ่อน — เฉพาะมือถือ */}
       {isMobile && (
@@ -534,7 +524,7 @@ export default function Installments() {
       <Snackbar
         open={snack.open} autoHideDuration={3000}
         onClose={() => setSnack((s) => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert severity={snack.severity} sx={{ width: '100%' }}
           onClose={() => setSnack((s) => ({ ...s, open: false }))}>

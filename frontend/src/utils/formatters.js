@@ -46,6 +46,25 @@ export const categoryConfig = {
   other:   { label: 'อื่นๆ',        color: 'default' },
 };
 
-// YEARS — อาร์เรย์ปี ค.ศ. 2020–2030 สำหรับ dropdown เลือกปี
-// Array.from({ length: 11 }, (_, i) => 2020 + i) → สร้าง array 11 ช่อง [2020, 2021, ..., 2030]
-export const YEARS = Array.from({ length: 11 }, (_, i) => 2020 + i);
+// YEARS — อาร์เรย์ปี ค.ศ. ตั้งแต่ 2020 ถึงปีปัจจุบัน + 5 สำหรับ dropdown เลือกปี
+// คำนวณจากปีปัจจุบัน จะได้ไม่หมดอายุเมื่อเลยปี 2030
+const LAST_YEAR = new Date().getFullYear() + 5;
+export const YEARS = Array.from({ length: LAST_YEAR - 2020 + 1 }, (_, i) => 2020 + i);
+
+// formatDate — แสดงวันที่เป็น dd/mm/yyyy (พ.ศ.)
+// อ่านจาก string ตรงๆ ("2026-10-31" หรือ "2026-10-31T00:00:00") ไม่ผ่าน new Date()
+// เพื่อไม่ให้ timezone เลื่อนวัน และไม่ขึ้นกับ locale ของเบราว์เซอร์
+export const formatDate = (value) => {
+  if (!value) return '-';
+  const m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return String(value);
+  return `${m[3]}/${m[2]}/${Number(m[1]) + 543}`;
+};
+
+// formatDateTime — วันที่ + เวลา (ใช้กับ UpdatedAt) เช่น 21/10/2569 14:05
+export const formatDateTime = (value) => {
+  if (!value) return '-';
+  const m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (!m) return formatDate(value);
+  return `${m[3]}/${m[2]}/${Number(m[1]) + 543} ${m[4]}:${m[5]}`;
+};

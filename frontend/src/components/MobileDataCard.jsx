@@ -1,8 +1,8 @@
 // ========================================================
-// MobileDataCard.jsx — การ์ดแทน "หนึ่งแถวของตาราง" บนหน้าจอมือถือ
+// MobileDataCard.jsx — "หนึ่งบรรทัดของสมุดบัญชี" บนหน้าจอมือถือ
 //
-// ตารางแนวนอนอ่านไม่ได้บนจอแคบ (ต้องเลื่อนซ้าย-ขวา) หน้าที่มีตาราง
-// จึงเปลี่ยนมา render การ์ดเหล่านี้แทนเมื่อ useIsMobile() = true
+// ตารางแนวนอนอ่านไม่ได้บนจอแคบ หน้าที่มีตารางจึง render รายการเหล่านี้แทน
+// เมื่อ useIsMobile() = true — เป็นแถวคั่นด้วยเส้น hairline ไม่ใช่การ์ดลอย
 //
 // Props:
 //   leading   — element ด้านซ้ายสุด (เช่น Checkbox) — optional
@@ -13,76 +13,88 @@
 //   rows      — [{ label, value, color }] รายละเอียดแบบ label ซ้าย / ค่าขวา
 //   footer    — element ใต้สุด (เช่น LinearProgress)
 //   actions   — element ปุ่มดำเนินการ (แก้ไข/ลบ)
-//   sx        — style เพิ่มเติมของการ์ด (เช่น พื้นหลังเมื่อชำระแล้ว)
+//   sx        — style เพิ่มเติม (เช่น พื้นหลังเมื่อชำระแล้ว)
 // ========================================================
 
-import { Box, Card, CardContent, Divider, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
+import { num } from '../theme';
 
 export default function MobileDataCard({
   leading, title, titleChips, amount, amountColor = 'text.primary',
   rows = [], footer, actions, sx,
 }) {
   return (
-    <Card variant="outlined" sx={{ mb: 1.5, ...sx }}>
-      <CardContent sx={{ p: 1.75, '&:last-child': { pb: 1.75 } }}>
+    <Box
+      component="li"
+      sx={{
+        listStyle: 'none',
+        py: 1.75,
+        px: 0.5,
+        borderBottom: 1,
+        borderColor: 'divider',
+        ...sx,
+      }}
+    >
+      {/* ── บรรทัดหัว: (checkbox) ชื่อ + chips ... ยอดเงิน ── */}
+      <Box display="flex" alignItems="flex-start" gap={1}>
+        {leading && <Box sx={{ ml: -1, mt: -1 }}>{leading}</Box>}
 
-        {/* ── บรรทัดหัว: (checkbox) ชื่อ + chips ... ยอดเงิน ── */}
-        <Box display="flex" alignItems="flex-start" gap={1}>
-          {leading && <Box sx={{ ml: -1, mt: -0.5 }}>{leading}</Box>}
-
-          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            <Typography variant="subtitle2" fontWeight={700} sx={{ wordBreak: 'break-word' }}>
-              {title}
-            </Typography>
-            {titleChips && (
-              <Box display="flex" gap={0.5} flexWrap="wrap" mt={0.5}>
-                {titleChips}
-              </Box>
-            )}
-          </Box>
-
-          {amount != null && (
-            <Typography variant="subtitle1" fontWeight={700} color={amountColor} sx={{ whiteSpace: 'nowrap' }}>
-              {amount}
-            </Typography>
+        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Typography variant="subtitle2" sx={{ wordBreak: 'break-word', lineHeight: 1.45 }}>
+            {title}
+          </Typography>
+          {titleChips && (
+            <Box display="flex" gap={0.5} flexWrap="wrap" mt={0.5}>
+              {titleChips}
+            </Box>
           )}
         </Box>
 
-        {/* ── รายละเอียด label / value ── */}
-        {rows.length > 0 && (
-          <Box mt={1.25} display="flex" flexDirection="column" gap={0.5}>
-            {rows.map((r) => (
-              <Box key={r.label} display="flex" justifyContent="space-between" gap={2}>
-                <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                  {r.label}
-                </Typography>
-                <Typography
-                  variant="caption"
-                  fontWeight={600}
-                  color={r.color ?? 'text.primary'}
-                  sx={{ textAlign: 'right', wordBreak: 'break-word' }}
-                >
-                  {r.value}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
+        {amount != null && (
+          <Typography sx={{ ...num, fontWeight: 500, fontSize: 16, whiteSpace: 'nowrap' }} color={amountColor}>
+            {amount}
+          </Typography>
         )}
+      </Box>
 
-        {footer && <Box mt={1.25}>{footer}</Box>}
-
-        {/* ── ปุ่มดำเนินการ ชิดขวา คั่นด้วยเส้น ──
-            mb ติดลบ — หักช่องว่างของ IconButton (สูง 44px ตาม theme)
-            ไม่ให้การ์ดสูงเกินจำเป็นเมื่อมีหลายสิบรายการ */}
-        {actions && (
-          <>
-            <Divider sx={{ mt: 1, mb: 0 }} />
-            <Box display="flex" justifyContent="flex-end" gap={0.5} sx={{ mb: -0.75, mr: -0.75 }}>
-              {actions}
+      {/* ── รายละเอียด label / value ── */}
+      {rows.length > 0 && (
+        <Box component="dl" sx={{ m: 0, mt: 1, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+          {rows.map((r) => (
+            <Box key={r.label} display="flex" justifyContent="space-between" gap={2}>
+              <Typography component="dt" variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                {r.label}
+              </Typography>
+              <Typography
+                component="dd"
+                variant="caption"
+                color={r.color ?? 'text.primary'}
+                sx={{ m: 0, textAlign: 'right', wordBreak: 'break-word', fontWeight: 500 }}
+              >
+                {r.value}
+              </Typography>
             </Box>
-          </>
-        )}
-      </CardContent>
-    </Card>
+          ))}
+        </Box>
+      )}
+
+      {footer && <Box mt={1.25}>{footer}</Box>}
+
+      {/* ── ปุ่มดำเนินการ ชิดขวา — mb ติดลบหักช่องว่างของ IconButton 44px ── */}
+      {actions && (
+        <Box display="flex" justifyContent="flex-end" gap={0.5} sx={{ mt: 0.5, mb: -1, mr: -1 }}>
+          {actions}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+// MobileDataList — ครอบ MobileDataCard ให้เป็น <ul> ที่มีเส้นบนสุด
+export function MobileDataList({ children, sx }) {
+  return (
+    <Box component="ul" sx={{ m: 0, p: 0, borderTop: 1, borderColor: 'ledger.ruleStrong', ...sx }}>
+      {children}
+    </Box>
   );
 }

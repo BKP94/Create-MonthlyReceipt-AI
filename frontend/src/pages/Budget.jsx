@@ -1,5 +1,6 @@
 // ========================================================
 // Budget.jsx — หน้าตั้งค่างบประมาณ
+// Hallmark · genre: editorial · macrostructure: long-document · design-system: design.md · designed-as-app
 // ฟีเจอร์:
 //   - แสดงงบประมาณปัจจุบัน (Gross → หัก → สุทธิ → แบ่งหมวด)
 //   - ฟอร์มแก้ไข พร้อม live calculation (คำนวณทันทีที่พิมพ์)
@@ -9,54 +10,50 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Alert, Box, Button, Card, CardContent, CircularProgress,
-  Divider, Grid, InputAdornment, Snackbar, TextField, Typography,
+  Alert, Box, Button, CircularProgress,
+  InputAdornment, Snackbar, TextField, Typography,
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
-import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
-import CreditCardIcon from '@mui/icons-material/CreditCard';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import SavingsIcon from '@mui/icons-material/Savings';
-import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import { budgetApi } from '../api/financeApi';
-import { formatCurrency } from '../utils/formatters';
+import PageHeader from '../components/PageHeader';
+import Section from '../components/Section';
+import { num } from '../theme';
+import { formatCurrency, formatDateTime } from '../utils/formatters';
 
-// =====================================================
-// BudgetResultCard — การ์ดแสดงงบแต่ละหมวด (หนี้/ผ่อน, ประจำวัน, เก็บออม)
-// มีเส้นซ้ายสีตาม color prop
-// =====================================================
-const BudgetResultCard = ({ title, amount, percent, icon, color }) => (
-  <Card sx={{ borderLeft: '4px solid', borderColor: color }}>
-    <CardContent sx={{ p: 2 }}>
-      <Box display="flex" alignItems="center" gap={1.5}>
-        <Box sx={{ color }}>{icon}</Box>
-        <Box flex={1}>
-          <Typography variant="body2" color="text.secondary">{title}</Typography>
-          <Typography variant="h6" fontWeight={700} sx={{ color }}>
-            ฿{formatCurrency(amount)}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">{percent}% ของเงินเดือนสุทธิ</Typography>
-        </Box>
-      </Box>
-    </CardContent>
-  </Card>
+// SectionTitle — หัวข้อมีเลขลำดับแบบเอกสาร (01, 02, …)
+const SectionTitle = ({ n, children }) => (
+  <>
+    <Box component="span" sx={{ ...num, color: 'text.secondary', fontWeight: 400, mr: 1.5 }}>{n}</Box>
+    {children}
+  </>
 );
 
-// =====================================================
-// DeductionRow — แถวแสดงรายการหักเงินเดือน
-// มีไอคอน "-" และแสดงจำนวนเงินสีแดง
-// =====================================================
-const DeductionRow = ({ label, amount }) => (
-  <Box display="flex" justifyContent="space-between" alignItems="center" py={0.5}>
-    <Box display="flex" alignItems="center" gap={0.5}>
-      <RemoveCircleOutlineIcon sx={{ fontSize: 14, color: 'error.light' }} />
-      <Typography variant="body2" color="text.secondary">{label}</Typography>
+// LedgerLine — หนึ่งบรรทัดในงบ: label ซ้าย / จำนวนเงินขวา
+const LedgerLine = ({ label, value, note, color = 'text.primary', strong, rule }) => (
+  <Box
+    display="flex" justifyContent="space-between" alignItems="baseline" gap={2}
+    sx={{
+      py: 1.25,
+      borderBottom: 1, borderColor: 'divider',
+      // rule — เส้นคู่ใต้ยอดรวม แบบสมุดบัญชี
+      ...(rule && { borderBottom: '3px double', borderBottomColor: 'ledger.ruleStrong' }),
+    }}
+  >
+    <Box minWidth={0}>
+      <Typography variant="body2" fontWeight={strong ? 600 : 400}>{label}</Typography>
+      {note && <Typography variant="caption" color="text.secondary">{note}</Typography>}
     </Box>
-    <Typography variant="body2" color="error.main" fontWeight={500}>
-      -{amount > 0 ? `฿${formatCurrency(amount)}` : '-'}
+    <Typography sx={{ ...num, fontSize: strong ? 18 : 15, fontWeight: strong ? 600 : 400, whiteSpace: 'nowrap' }} color={color}>
+      {value}
     </Typography>
   </Box>
 );
+
+// money adornment / input props ที่ใช้ซ้ำในฟอร์ม
+const baht = { startAdornment: <InputAdornment position="start">฿</InputAdornment> };
+const pct = { endAdornment: <InputAdornment position="end">%</InputAdornment> };
+const moneyInput = { min: 0, step: '0.01', inputMode: 'decimal' };
+const pctInput = { min: 0, max: 100, step: '0.5', inputMode: 'decimal' };
 
 // =====================================================
 // Budget — Component หลักของหน้าตั้งค่างบประมาณ
@@ -157,263 +154,173 @@ export default function Budget() {
     setErrors((prev) => ({ ...prev, [k]: undefined, _total: undefined, _deduction: undefined }));
   };
 
-  // แสดง loading spinner ขณะโหลดข้อมูลครั้งแรก
-  if (loading) return <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>;
+  const pctOk = Math.abs(totalPct - 100) < 0.01;
 
   return (
-    <Box maxWidth={760} mx="auto">
-      <Typography variant="h5" mb={3}>ตั้งค่างบประมาณ</Typography>
+    <Box maxWidth={760}>
+      <PageHeader
+        title="ตั้งค่างบประมาณ"
+        description="เงินเดือนหักรายการคงที่ แล้วแบ่งเงินสุทธิเป็นสามหมวด"
+      />
 
-      {/* ส่วนที่ 1 — แสดงงบประมาณปัจจุบัน (ข้อมูลที่บันทึกล่าสุด) */}
-      {budget && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent sx={{ p: 2.5 }}>
-            <Box display="flex" alignItems="center" gap={1.5} mb={2}>
-              <AccountBalanceIcon color="primary" />
-              <Typography variant="subtitle1" fontWeight={600}>งบประมาณปัจจุบัน</Typography>
-              <Typography variant="caption" color="text.secondary" ml="auto">
-                อัปเดตล่าสุด: {budget.UpdatedAt}
-              </Typography>
-            </Box>
+      {loading ? (
+        <Box display="flex" justifyContent="center" py={8}><CircularProgress aria-label="กำลังโหลด" /></Box>
+      ) : (
+        <>
+          {/* 01 — งบประมาณปัจจุบัน (ข้อมูลที่บันทึกล่าสุด) */}
+          {budget && (
+            <Section
+              title={<SectionTitle n="01">งบประมาณปัจจุบัน</SectionTitle>}
+              aside={budget.UpdatedAt ? `อัปเดตล่าสุด ${formatDateTime(budget.UpdatedAt)}` : undefined}
+              sx={{ mb: 6 }}
+            >
+              <Box sx={{ borderTop: 1, borderColor: 'ledger.ruleStrong' }}>
+                <LedgerLine label="เงินเดือน (ก่อนหัก)" value={`฿${formatCurrency(budget.Salary)}`} />
+                <LedgerLine label="ประกันสังคม" value={budget.SocialSecurity > 0 ? `−฿${formatCurrency(budget.SocialSecurity)}` : '—'}
+                  color={budget.SocialSecurity > 0 ? 'error.main' : 'text.secondary'} />
+                <LedgerLine label="กยศ." value={budget.StudentLoan > 0 ? `−฿${formatCurrency(budget.StudentLoan)}` : '—'}
+                  color={budget.StudentLoan > 0 ? 'error.main' : 'text.secondary'} />
+                <LedgerLine label="อื่นๆ" value={budget.OtherDeductions > 0 ? `−฿${formatCurrency(budget.OtherDeductions)}` : '—'}
+                  color={budget.OtherDeductions > 0 ? 'error.main' : 'text.secondary'} />
+                <LedgerLine label="เงินเดือนสุทธิ" note="ใช้เป็นฐานแบ่งงบ"
+                  value={`฿${formatCurrency(budget.NetSalary)}`} strong rule />
+              </Box>
 
-            {/* กล่อง 3 ช่อง: เงินเดือน → รายการหัก → เงินเดือนสุทธิ */}
-            <Grid container spacing={1.5} mb={2}>
-              <Grid item xs={12} sm={4}>
-                {/* กล่องน้ำเงิน — เงินเดือนก่อนหัก */}
-                <Box sx={{ bgcolor: 'primary.main', color: 'white', borderRadius: 2, p: 2, textAlign: 'center', height: '100%' }}>
-                  <Typography variant="caption" sx={{ opacity: 0.85 }}>เงินเดือน (Gross)</Typography>
-                  <Typography variant="h5" fontWeight={700}>฿{formatCurrency(budget.Salary)}</Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                {/* กล่องส้มอ่อน — รายการหักทั้งหมด */}
-                <Box sx={{ bgcolor: '#FFF3E0', borderRadius: 2, p: 2, height: '100%' }}>
-                  <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>รายการหัก</Typography>
-                  <DeductionRow label="ประกันสังคม" amount={budget.SocialSecurity} />
-                  <DeductionRow label="กยศ." amount={budget.StudentLoan} />
-                  <DeductionRow label="อื่นๆ" amount={budget.OtherDeductions} />
-                  <Divider sx={{ my: 0.5 }} />
-                  <Box display="flex" justifyContent="space-between">
-                    <Typography variant="caption" fontWeight={600}>รวมหัก</Typography>
-                    <Typography variant="caption" fontWeight={700} color="error.main">
-                      ฿{formatCurrency(budget.TotalDeductions)}
+              {/* แบ่งเงินสุทธิเป็นสามหมวด */}
+              <Box
+                component="dl"
+                sx={{
+                  m: 0, mt: 3,
+                  display: 'grid',
+                  gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(3, minmax(0, 1fr))' },
+                  borderTop: 1, borderBottom: 1, borderColor: 'divider',
+                  '& > div:not(:first-of-type)': { borderTop: { xs: 1, sm: 0 }, borderLeft: { sm: 1 }, borderColor: 'divider' },
+                }}
+              >
+                {[
+                  { label: 'หนี้/ผ่อน', amount: budget.DebtBudget, pct: budget.DebtPercent },
+                  { label: 'ประจำวัน', amount: budget.DailyBudget, pct: budget.DailyExpensePercent },
+                  { label: 'เงินเก็บ', amount: budget.SavingsBudget, pct: budget.SavingsPercent },
+                ].map((c) => (
+                  <Box key={c.label} sx={{
+                    py: { xs: 1.25, sm: 2 }, px: { xs: 0, sm: 2.5 }, minWidth: 0,
+                    display: { xs: 'flex', sm: 'block' }, justifyContent: 'space-between', alignItems: 'baseline', gap: 1,
+                  }}>
+                    <Typography component="dt" variant="body2" color="text.secondary">
+                      {c.label} <Box component="span" sx={num}>· {c.pct}%</Box>
+                    </Typography>
+                    <Typography component="dd" sx={{ ...num, m: 0, mt: { sm: 0.5 }, fontSize: { xs: 17, sm: 22 }, fontWeight: 500, whiteSpace: 'nowrap' }}>
+                      ฿{formatCurrency(c.amount)}
                     </Typography>
                   </Box>
-                </Box>
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                {/* กล่องเขียว — เงินเดือนสุทธิ (ใช้คำนวณ 50/30/20) */}
-                <Box sx={{ bgcolor: 'success.main', color: 'white', borderRadius: 2, p: 2, textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                  <Typography variant="caption" sx={{ opacity: 0.85 }}>เงินเดือนสุทธิ</Typography>
-                  <Typography variant="h5" fontWeight={700}>฿{formatCurrency(budget.NetSalary)}</Typography>
-                  <Typography variant="caption" sx={{ opacity: 0.75 }}>
-                    ใช้คำนวณ 50/30/20
-                  </Typography>
-                </Box>
-              </Grid>
-            </Grid>
+                ))}
+              </Box>
+            </Section>
+          )}
 
-            {/* การ์ดงบแต่ละหมวด */}
-            <Grid container spacing={1.5}>
-              <Grid item xs={12} sm={4}>
-                <BudgetResultCard title="หนี้/ผ่อน" amount={budget.DebtBudget}
-                  percent={budget.DebtPercent} icon={<CreditCardIcon />} color="#C62828" />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <BudgetResultCard title="ประจำวัน" amount={budget.DailyBudget}
-                  percent={budget.DailyExpensePercent} icon={<ShoppingCartIcon />} color="#E65100" />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <BudgetResultCard title="เงินเก็บ" amount={budget.SavingsBudget}
-                  percent={budget.SavingsPercent} icon={<SavingsIcon />} color="#2E7D32" />
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ส่วนที่ 2 — ฟอร์มแก้ไขงบประมาณ */}
-      <Card>
-        <CardContent sx={{ p: 2.5 }}>
-          <Typography variant="subtitle1" fontWeight={600} mb={2}>แก้ไขงบประมาณ</Typography>
-          <Divider sx={{ mb: 2.5 }} />
-
-          <Grid container spacing={2.5}>
-
-            {/* เงินเดือน (Gross) */}
-            <Grid item xs={12}>
+          {/* 02 — เงินเดือนและรายการหัก */}
+          <Section title={<SectionTitle n="02">เงินเดือนและรายการหัก</SectionTitle>} aside="หักก่อนคำนวณสัดส่วน" sx={{ mb: 6 }}>
+            <Box display="grid" gap={2.5} sx={{ gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(3, minmax(0, 1fr))' } }}>
               <TextField
                 label="เงินเดือน (บาท)" fullWidth type="number"
                 value={form.Salary} onChange={set('Salary')}
                 error={!!errors.Salary} helperText={errors.Salary}
-                // InputProps → เพิ่ม ฿ ด้านหน้า input
-                InputProps={{ startAdornment: <InputAdornment position="start">฿</InputAdornment> }}
-                inputProps={{ min: 0, step: '0.01' }}
+                InputProps={baht} inputProps={moneyInput}
+                sx={{ gridColumn: '1 / -1' }}
               />
-            </Grid>
-
-            {/* หัวข้อ รายการหัก */}
-            <Grid item xs={12}>
-              <Typography variant="body2" color="text.secondary" mb={1}>
-                รายการหัก (หักก่อนคำนวณ 50/30/20)
-              </Typography>
-            </Grid>
-
-            {/* ประกันสังคม */}
-            <Grid item xs={12} sm={4}>
               <TextField
                 label="ประกันสังคม (บาท)" fullWidth type="number"
                 value={form.SocialSecurity} onChange={set('SocialSecurity')}
                 error={!!errors.SocialSecurity} helperText={errors.SocialSecurity}
-                InputProps={{ startAdornment: <InputAdornment position="start">฿</InputAdornment> }}
-                inputProps={{ min: 0, step: '0.01' }}
+                InputProps={baht} inputProps={moneyInput}
               />
-            </Grid>
-            {/* กยศ. */}
-            <Grid item xs={12} sm={4}>
               <TextField
                 label="กยศ. (บาท)" fullWidth type="number"
                 value={form.StudentLoan} onChange={set('StudentLoan')}
                 error={!!errors.StudentLoan} helperText={errors.StudentLoan}
-                InputProps={{ startAdornment: <InputAdornment position="start">฿</InputAdornment> }}
-                inputProps={{ min: 0, step: '0.01' }}
+                InputProps={baht} inputProps={moneyInput}
               />
-            </Grid>
-            {/* อื่นๆ */}
-            <Grid item xs={12} sm={4}>
               <TextField
                 label="อื่นๆ (บาท)" fullWidth type="number"
                 value={form.OtherDeductions} onChange={set('OtherDeductions')}
                 error={!!errors.OtherDeductions} helperText={errors.OtherDeductions}
-                InputProps={{ startAdornment: <InputAdornment position="start">฿</InputAdornment> }}
-                inputProps={{ min: 0, step: '0.01' }}
+                InputProps={baht} inputProps={moneyInput}
               />
-            </Grid>
+            </Box>
 
-            {/* กล่องแสดงเงินเดือนสุทธิ Live */}
-            <Grid item xs={12}>
-              <Box
-                sx={{
-                  p: 2,
-                  borderRadius: 2,
-                  // เขียวเมื่อ netSalary > 0, แดงเมื่อ ≤ 0 (หักเกินเงินเดือน)
-                  bgcolor: netSalary > 0 ? '#E8F5E9' : '#FFEBEE',
-                  border: '1px solid',
-                  borderColor: netSalary > 0 ? 'success.light' : 'error.light',
-                }}
-              >
-                <Grid container alignItems="center" spacing={1}>
-                  <Grid item xs={12} sm={6}>
-                    <Box display="flex" gap={2} flexWrap="wrap">
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">เงินเดือน</Typography>
-                        <Typography variant="body2" fontWeight={600}>฿{formatCurrency(salary)}</Typography>
-                      </Box>
-                      {totalDed > 0 && (
-                        <Box>
-                          <Typography variant="caption" color="text.secondary">หักรวม</Typography>
-                          <Typography variant="body2" fontWeight={600} color="error.main">
-                            -฿{formatCurrency(totalDed)}
-                          </Typography>
-                        </Box>
-                      )}
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12} sm={6} textAlign={{ sm: 'right' }}>
-                    <Typography variant="caption" color="text.secondary">เงินเดือนสุทธิ</Typography>
-                    <Typography variant="h6" fontWeight={700} color={netSalary > 0 ? 'success.main' : 'error.main'}>
-                      ฿{formatCurrency(netSalary)}
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </Box>
-              {/* Error ถ้าหักเกินเงินเดือน */}
-              {errors._deduction && <Alert severity="error" sx={{ mt: 1 }}>{errors._deduction}</Alert>}
-            </Grid>
+            {/* ผลคำนวณสด — เงินเดือนสุทธิ */}
+            <Box mt={3} sx={{ borderTop: 1, borderColor: 'ledger.ruleStrong' }} aria-live="polite">
+              <LedgerLine label="เงินเดือน" value={`฿${formatCurrency(salary)}`} />
+              <LedgerLine label="หักรวม" value={totalDed > 0 ? `−฿${formatCurrency(totalDed)}` : '—'}
+                color={totalDed > 0 ? 'error.main' : 'text.secondary'} />
+              <LedgerLine label="เงินเดือนสุทธิ" value={`฿${formatCurrency(netSalary)}`}
+                color={netSalary > 0 ? 'text.primary' : 'error.main'} strong rule />
+            </Box>
+            {errors._deduction && <Alert severity="error" sx={{ mt: 1.5 }}>{errors._deduction}</Alert>}
+          </Section>
 
-            {/* หัวข้อ สัดส่วน */}
-            <Grid item xs={12}>
-              <Typography variant="body2" color="text.secondary" mb={1}>
-                สัดส่วนงบประมาณจากเงินเดือนสุทธิ (รวมต้องได้ 100%)
-              </Typography>
-            </Grid>
-
-            {/* หนี้/ผ่อน % — helperText แสดงยอดเงินตามสัดส่วน (live) */}
-            <Grid item xs={12} sm={4}>
+          {/* 03 — สัดส่วนงบประมาณ */}
+          <Section title={<SectionTitle n="03">สัดส่วนจากเงินเดือนสุทธิ</SectionTitle>} aside="รวมต้องได้ 100%" sx={{ mb: 4 }}>
+            <Box display="grid" gap={2.5} sx={{ gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(3, minmax(0, 1fr))' } }}>
               <TextField
                 label="หนี้/ผ่อน (%)" fullWidth type="number"
                 value={form.DebtPercent} onChange={set('DebtPercent')}
                 error={!!errors.DebtPercent}
-                helperText={netSalary > 0 ? `฿${formatCurrency(netSalary * debtPct / 100)}` : ''}
-                InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
-                inputProps={{ min: 0, max: 100, step: '0.5' }}
+                helperText={netSalary > 0 ? `฿${formatCurrency(netSalary * debtPct / 100)}` : ' '}
+                InputProps={pct} inputProps={pctInput}
               />
-            </Grid>
-            {/* ประจำวัน % */}
-            <Grid item xs={12} sm={4}>
               <TextField
                 label="ประจำวัน (%)" fullWidth type="number"
                 value={form.DailyExpensePercent} onChange={set('DailyExpensePercent')}
                 error={!!errors.DailyExpensePercent}
-                helperText={netSalary > 0 ? `฿${formatCurrency(netSalary * dailyPct / 100)}` : ''}
-                InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
-                inputProps={{ min: 0, max: 100, step: '0.5' }}
+                helperText={netSalary > 0 ? `฿${formatCurrency(netSalary * dailyPct / 100)}` : ' '}
+                InputProps={pct} inputProps={pctInput}
               />
-            </Grid>
-            {/* เงินเก็บ % */}
-            <Grid item xs={12} sm={4}>
               <TextField
                 label="เงินเก็บ (%)" fullWidth type="number"
                 value={form.SavingsPercent} onChange={set('SavingsPercent')}
                 error={!!errors.SavingsPercent}
-                helperText={netSalary > 0 ? `฿${formatCurrency(netSalary * savingsPct / 100)}` : ''}
-                InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
-                inputProps={{ min: 0, max: 100, step: '0.5' }}
+                helperText={netSalary > 0 ? `฿${formatCurrency(netSalary * savingsPct / 100)}` : ' '}
+                InputProps={pct} inputProps={pctInput}
               />
-            </Grid>
+            </Box>
 
-            {/* ตัวบอกผลรวมสัดส่วน — เขียวถ้า =100%, แดงถ้าไม่ใช่ */}
-            <Grid item xs={12}>
-              <Box
-                sx={{
-                  p: 1.5, borderRadius: 2,
-                  bgcolor: Math.abs(totalPct - 100) < 0.01 ? 'success.light' : 'error.light',
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                }}
-              >
-                <Typography variant="body2" fontWeight={600}>
-                  {Math.abs(totalPct - 100) < 0.01
-                    ? `✓ สัดส่วนรวม 100%`
-                    : `⚠ สัดส่วนรวม ${totalPct.toFixed(2)}%`}
+            {/* ผลรวมสัดส่วน — ข้อความ + สี ไม่ใช้สีอย่างเดียว */}
+            <Box
+              mt={2} py={1.25}
+              display="flex" justifyContent="space-between" alignItems="baseline" gap={2} flexWrap="wrap"
+              sx={{ borderTop: 1, borderBottom: '3px double', borderColor: 'ledger.ruleStrong' }}
+              aria-live="polite"
+            >
+              <Typography variant="body2" fontWeight={600} color={pctOk ? 'success.main' : 'error.main'}>
+                {pctOk ? 'สัดส่วนรวมครบ 100%' : 'สัดส่วนรวมยังไม่ครบ'}{' '}
+                <Box component="span" sx={num}>({totalPct.toFixed(2)}%)</Box>
+              </Typography>
+              {netSalary > 0 && (
+                <Typography variant="body2" sx={num} color="text.secondary">
+                  ฿{formatCurrency(netSalary * totalPct / 100)} / ฿{formatCurrency(netSalary)}
                 </Typography>
-                {netSalary > 0 && (
-                  <Typography variant="body2">
-                    รวม ฿{formatCurrency(netSalary * totalPct / 100)} / ฿{formatCurrency(netSalary)}
-                  </Typography>
-                )}
-              </Box>
-              {errors._total && <Alert severity="error" sx={{ mt: 1 }}>{errors._total}</Alert>}
-            </Grid>
+              )}
+            </Box>
+            {errors._total && <Alert severity="error" sx={{ mt: 1.5 }}>{errors._total}</Alert>}
+          </Section>
 
-            {/* ปุ่มบันทึก */}
-            <Grid item xs={12}>
-              <Button
-                variant="contained" size="large" fullWidth
-                startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
-                onClick={handleSave} disabled={saving}
-              >
-                บันทึกงบประมาณ
-              </Button>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+          <Button
+            variant="contained" size="large"
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
+            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+            onClick={handleSave} disabled={saving}
+          >
+            บันทึกงบประมาณ
+          </Button>
+        </>
+      )}
 
       {/* Snackbar แจ้งผลการบันทึก */}
       <Snackbar
         open={snack.open} autoHideDuration={3000}
         onClose={() => setSnack((s) => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert severity={snack.severity} sx={{ width: '100%' }}
           onClose={() => setSnack((s) => ({ ...s, open: false }))}>
