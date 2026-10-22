@@ -8,5 +8,6 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 
 export default function useIsMobile() {
   const theme = useTheme();
-  return useMediaQuery(theme.breakpoints.down('md'));
+  // noSsr — อ่านค่าจริงตั้งแต่ render แรก ไม่ render แบบ desktop ก่อนแล้วค่อยสลับ
+  return useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
 }

@@ -48,8 +48,8 @@ because MUI's `alpha()` / `darken()` cannot parse `oklch()`. If you change one, 
 
 Rules: no pure `#000` / `#fff`. Accent ≤ 5% of any viewport. Contrast ratios above are against `--color-paper`.
 
-**Dark mode (defined, not yet implemented):** paper `oklch(18% 0.010 70)`, paper-2 `oklch(22% 0.010 70)`,
-ink `oklch(93% 0.010 85)`, muted `oklch(72% 0.010 80)`, rule `oklch(32% 0.010 75)`, accent `oklch(72% 0.11 255)`,
+**Dark mode (follows `prefers-color-scheme`; hex mirror `ledgerDark` in theme.js):** paper `oklch(18% 0.010 70)`, paper-2 `oklch(22% 0.010 70)`,
+ink `oklch(93% 0.010 85)`, muted `oklch(72% 0.010 80)`, rule `oklch(32% 0.010 75)`, rule-strong `oklch(51% 0.012 75)`, accent `oklch(72% 0.11 255)`,
 positive `oklch(72% 0.12 150)`, negative `oklch(70% 0.14 28)`, warning `oklch(76% 0.11 70)`.
 
 ## Typography
@@ -71,7 +71,7 @@ Max content width 1120px. Radius: 4px (inputs, buttons), 0 for ledger surfaces.
 ## Motion
 
 Minimal. One 160ms opacity fade on route content and dialogs; hover colour transitions 120ms.
-`prefers-reduced-motion: reduce` → transitions off, state changes stay visible.
+`prefers-reduced-motion: reduce` → page fade off, transitions cut to ~0ms, state changes stay visible.
 
 ## Microinteractions
 

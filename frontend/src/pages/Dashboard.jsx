@@ -25,7 +25,8 @@ import MobileDataCard, { MobileDataList } from '../components/MobileDataCard';
 import PageHeader from '../components/PageHeader';
 import Section from '../components/Section';
 import useIsMobile from '../hooks/useIsMobile';
-import { ledger, fonts, num } from '../theme';
+import { useTheme } from '@mui/material/styles';
+import { fonts, num } from '../theme';
 import { formatCurrency, formatCurrencyShort, thaiShortMonths, thaiFullMonths } from '../utils/formatters';
 
 // =====================================================
@@ -63,7 +64,7 @@ const EquationRow = ({ label, value, color = 'text.primary', strong, total }) =>
         ...num,
         fontSize: 15,
         fontWeight: strong ? 600 : 400,
-        ...(total && { borderBottom: `3px double ${ledger.ink}`, pb: 0.25 }),
+        ...(total && { borderBottom: '3px double', borderColor: 'ledger.ink', pb: 0.25 }),
       }}
       color={color}
     >
@@ -131,6 +132,8 @@ const ProgressCell = ({ pct }) => (
 // =====================================================
 export default function Dashboard() {
   const isMobile = useIsMobile();
+  // ค่าสีจริงของโหมดปัจจุบัน — recharts รับ path แบบ 'ledger.x' ไม่ได้
+  const { ledger } = useTheme().palette;
   const now = new Date();
   // state ปี/เดือนที่กำลังดูอยู่ — เริ่มต้นที่เดือนปัจจุบัน
   const [year, setYear] = useState(now.getFullYear());

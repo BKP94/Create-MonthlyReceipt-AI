@@ -31,7 +31,8 @@ import AddFab from '../components/AddFab';
 import PageHeader from '../components/PageHeader';
 import Section from '../components/Section';
 import useIsMobile from '../hooks/useIsMobile';
-import { ledger, num } from '../theme';
+import { useTheme } from '@mui/material/styles';
+import { num } from '../theme';
 import { formatCurrency, formatCurrencyShort } from '../utils/formatters';
 
 // =====================================================
@@ -202,6 +203,8 @@ function SalaryDialog({ open, record, onClose, onSaved }) {
 // =====================================================
 export default function SalaryHistory() {
   const isMobile = useIsMobile();
+  // ค่าสีจริงของโหมดปัจจุบัน — recharts รับ path แบบ 'ledger.x' ไม่ได้
+  const { ledger } = useTheme().palette;
   const [list, setList] = useState([]);        // เรียงจากเก่าไปใหม่
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);

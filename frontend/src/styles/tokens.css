@@ -30,6 +30,30 @@
   color-scheme: light;
 }
 
+/* โหมดมืด — ตามการตั้งค่าเครื่อง · hex mirror อยู่ที่ ledgerDark ใน theme.js */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-paper: oklch(18% 0.010 70);
+    --color-paper-2: oklch(22% 0.010 70);
+    --color-paper-3: oklch(26% 0.012 70);
+    --color-ink: oklch(93% 0.010 85);
+    --color-ink-2: oklch(82% 0.010 80);
+    --color-muted: oklch(72% 0.010 80);
+    --color-rule: oklch(32% 0.010 75);
+    --color-rule-strong: oklch(51% 0.012 75);
+    --color-accent: oklch(72% 0.11 255);
+    --color-accent-soft: oklch(30% 0.05 255);
+    --color-positive: oklch(72% 0.12 150);
+    --color-positive-soft: oklch(27% 0.04 150);
+    --color-negative: oklch(70% 0.14 28);
+    --color-negative-soft: oklch(28% 0.05 28);
+    --color-warning: oklch(76% 0.11 70);
+    --color-warning-soft: oklch(29% 0.045 70);
+
+    color-scheme: dark;
+  }
+}
+
 html,
 body {
   overflow-x: clip;
@@ -66,11 +90,17 @@ body {
   animation: ledger-fade var(--motion-base) ease-out;
 }
 
+/* ลดการเคลื่อนไหว — ตัด fade ของหน้า และย่อ transition ให้แทบทันที
+ * (ไม่ใช้ none ทั้งหมด เพื่อให้ event transitionend ของ MUI ยังทำงาน) */
 @media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: none;
+  }
+
   *,
   *::before,
   *::after {
-    animation: none !important;
-    transition: none !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

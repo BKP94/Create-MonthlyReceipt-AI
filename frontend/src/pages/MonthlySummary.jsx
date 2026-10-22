@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { dashboardApi } from '../api/financeApi';
 import PageHeader from '../components/PageHeader';
+import { selectSx } from '../components/MonthSelector';
 import { num } from '../theme';
 import { formatCurrency, thaiFullMonths, YEARS } from '../utils/formatters';
 
@@ -62,7 +63,7 @@ export default function MonthlySummary() {
         title="สรุปรายเดือน"
         description={`รายจ่ายและเงินคงเหลือทั้ง 12 เดือนของปี ${year + 543}`}
         actions={
-          <FormControl size="small" sx={{ minWidth: 120 }}>
+          <FormControl size="small" sx={{ minWidth: 120, ...selectSx }}>
             <InputLabel id="summary-year-label">ปี</InputLabel>
             <Select
               labelId="summary-year-label"

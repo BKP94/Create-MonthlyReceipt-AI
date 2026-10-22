@@ -129,6 +129,24 @@ export default function Layout({ children }) {
 
   return (
     <Box sx={{ display: 'flex' }}>
+      {/* ลิงก์ข้ามเมนู — ซ่อนจนกว่าจะโฟกัสด้วยคีย์บอร์ด (ปุ่ม Tab ครั้งแรก)
+          HashRouter ใช้ # เป็น route จึงโฟกัส main เองแทนการพึ่ง href="#..." */}
+      <Box
+        component="a"
+        href="#main-content"
+        onClick={(e) => { e.preventDefault(); document.getElementById('main-content')?.focus(); }}
+        sx={{
+          position: 'fixed', top: 8, left: 8, zIndex: (t) => t.zIndex.tooltip + 1,
+          px: 2, py: 1.25, minHeight: 44, display: 'inline-flex', alignItems: 'center',
+          bgcolor: 'ledger.ink', color: 'ledger.paper', borderRadius: 1,
+          fontWeight: 600, textDecoration: 'none',
+          transform: 'translateY(-200%)',
+          '&:focus-visible': { transform: 'none' },
+        }}
+      >
+        ข้ามไปเนื้อหาหลัก
+      </Box>
+
       {/* แถบบน — เฉพาะมือถือ: พื้นกระดาษ เส้น hairline ด้านล่าง */}
       {isMobile && (
         <AppBar
@@ -193,7 +211,10 @@ export default function Layout({ children }) {
       {/* เนื้อหาหลัก — children จาก App.jsx */}
       <Box
         component="main"
+        id="main-content"
+        tabIndex={-1}
         sx={{
+          '&:focus': { outline: 'none' },
           flexGrow: 1,
           minWidth: 0,
           px: { xs: 2, md: 4 },
